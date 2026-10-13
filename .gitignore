@@ -1,4 +1,5 @@
 data/runtime/suppliers.json
+.env
 .venv/
 __pycache__/
 *.py[cod]

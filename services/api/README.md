@@ -10,6 +10,12 @@ uv run seed
 uv run uvicorn services.api.app:app --host 0.0.0.0 --port 5050
 ```
 
+La API requiere `SECRET_KEY` y `ACCESS_TOKEN_EXPIRE_MINUTES` en el entorno o en
+`.env`. Copia `.env.example` a `.env`, genera una clave aleatoria (por ejemplo,
+con `openssl rand -hex 32`) y configura ambas variables. No compartas la clave
+ni la guardes en Git. `SECRET_KEY` no tiene valor por defecto y la API no inicia
+si falta alguna de estas variables.
+
 `uv run seed` carga los 15 proveedores del contexto solo si la tabla esta vacia e
 informa cuantas filas inserto. Repetir el comando no duplica ni sobrescribe
 proveedores. Uvicorn tambien inicializa la base automaticamente si aun esta
@@ -27,9 +33,12 @@ La API sirve ambas interfaces en el mismo origen. No abras el backoffice con
 `POST /api/incidents/analyze`: multipart/form-data, campo `file`, extension `.csv`,
 UTF-8, cabecera, separador coma, limite de solicitud 5 MB.
 
+Ambas rutas requieren `Authorization: Bearer <token>`. Obtén un token con
+`POST /auth/login` y úsalo en las solicitudes:
+
 ```bash
-curl -F file=@scripts/incidents-nexova.csv http://localhost:5050/api/incidents/analyze
-curl -o results.csv http://localhost:5050/api/incidents/results/export
+curl -H "Authorization: Bearer $TOKEN" -F file=@scripts/incidents-nexova.csv http://localhost:5050/api/incidents/analyze
+curl -H "Authorization: Bearer $TOKEN" -o results.csv http://localhost:5050/api/incidents/results/export
 ```
 
 El JSON contiene `total`, `valid`, `invalid`, `invalid_reasons`, `categories`,
@@ -113,3 +122,53 @@ Para validar el backend:
 ```bash
 uv run pytest services/api/tests
 ```
+
+## Autenticacion y usuarios
+
+La API usa JWT Bearer stateless. El registro y el login son publicos; las rutas
+de proveedores e incidencias requieren un token. `/docs` y los archivos
+estaticos siguen siendo publicos. Las contrasenas se guardan como hash bcrypt;
+las respuestas de usuario nunca incluyen el hash.
+
+| Metodo | Ruta | Acceso | Uso |
+| --- | --- | --- | --- |
+| `POST` | `/users` | Publico | Registra usuario y perfil; role siempre `user` |
+| `POST` | `/auth/login` | Publico | Formulario OAuth2; `username` es el email |
+| `GET` | `/auth/me` | Autenticado | Usuario actual y perfil |
+| `GET` | `/users` | Admin | Lista usuarios |
+| `GET` | `/users/{id}` | Propio o admin | Consulta usuario |
+| `PUT` | `/users/{id}` | Propio o admin | El usuario cambia email; role solo admin |
+| `DELETE` | `/users/{id}` | Admin | Elimina usuario y perfil; no permite borrar el ultimo admin activo |
+| `GET` | `/profiles/me` | Autenticado | Consulta perfil propio |
+| `PUT` | `/profiles/me` | Autenticado | Actualiza `name`, `phone` o `address` propios |
+
+En Swagger, registra una cuenta con `POST /users`, pulsa **Authorize** e inicia
+sesion con el email como `username` y su contrasena. Tambien puedes ejecutar
+`POST /auth/login` directamente; la respuesta contiene `access_token` y
+`token_type`.
+
+### Crear el primer administrador
+
+El registro publico no acepta roles privilegiados. Para crear el primer admin,
+añade estas variables a `.env` (no al repositorio) y ejecuta el comando de
+bootstrap de forma explicita:
+
+```dotenv
+BOOTSTRAP_ADMIN_EMAIL=admin@example.com
+BOOTSTRAP_ADMIN_PASSWORD=un-secreto-largo-y-unico
+```
+
+```bash
+uv run seed-admin
+```
+
+El comando crea el usuario admin y su perfil, guarda un hash bcrypt y no muestra
+la contrasena. Puede repetirse con las mismas credenciales sin modificar la
+cuenta existente. No promueve usuarios ya registrados y no se ejecuta al
+arrancar Uvicorn. Borra las variables de bootstrap de `.env` cuando ya no sean
+necesarias.
+
+Para un flujo local completo, crea primero el admin, inicia Uvicorn, abre
+`http://localhost:5050/docs`, autoriza con **Authorize** y prueba `/auth/me` o
+una ruta protegida de proveedores. Las rutas privadas devuelven `401` sin un
+token valido; un usuario autenticado sin permisos recibe `403`.

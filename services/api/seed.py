@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from services.api.database import CompanyDatabase
 from services.api.supplier_seed import SUPPLIERS_SEED
 from services.api.supplier_store import SupplierStore
 
@@ -9,13 +10,14 @@ DATABASE_PATH = ROOT / "data" / "runtime" / "suppliers.json"
 
 
 def seed_suppliers(db_path: Path = DATABASE_PATH) -> tuple[int, int]:
-    store = SupplierStore(db_path)
+    database = CompanyDatabase(db_path)
+    store = SupplierStore(database)
     try:
         inserted = store.seed_if_empty(SUPPLIERS_SEED)
         total = len(store.list())
         return inserted, total
     finally:
-        store.close()
+        database.close()
 
 
 def main():

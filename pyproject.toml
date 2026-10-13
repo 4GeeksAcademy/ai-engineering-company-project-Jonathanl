@@ -13,6 +13,9 @@ dependencies = [
     "tinydb>=4.8,<5",
     "pydantic>=2.9,<3",
     "email-validator>=2.2,<3",
+    "libpass[bcrypt]>=1.9.3,<2",
+    "python-jose[cryptography]>=3.3,<4",
+    "python-dotenv>=1,<2",
 ]
 
 [project.optional-dependencies]
@@ -23,6 +26,7 @@ dev = [
 
 [project.scripts]
 seed = "services.api.seed:main"
+seed-admin = "services.api.seed_admin:main"
 
 [tool.setuptools.packages.find]
 where = ["."]

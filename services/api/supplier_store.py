@@ -1,20 +1,16 @@
 from datetime import datetime, timezone
-from pathlib import Path
-from threading import RLock
 from uuid import UUID, uuid4
 
-from tinydb import Query, TinyDB
+from tinydb import Query
 
+from services.api.database import CompanyDatabase
 from services.api.supplier_models import Supplier, SupplierCreate, SupplierUpdate
 
 
 class SupplierStore:
-    def __init__(self, db_path: Path):
-        self.db_path = Path(db_path)
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        self._db = TinyDB(self.db_path)
-        self._table = self._db.table("suppliers")
-        self._lock = RLock()
+    def __init__(self, database: CompanyDatabase):
+        self._table = database.table("suppliers")
+        self._lock = database.lock
 
     def seed_if_empty(self, suppliers: list[dict]):
         with self._lock:
@@ -61,6 +57,3 @@ class SupplierStore:
             updated = supplier.model_copy(update={**changes, "updated_at": updated_at})
             self._table.update(updated.model_dump(mode="json"), doc_ids=[record.doc_id])
             return updated
-
-    def close(self):
-        self._db.close()
