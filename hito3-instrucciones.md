@@ -50,7 +50,7 @@
 - Organiza el proyecto con una estructura de carpetas clara: `/components`, `/hooks` (si aplica), `/types`, `/lib` o `/services`.
 - Define tipos TypeScript para todas las estructuras de datos recibidas de la API.
 
-> ⚠️ IMPORTANTE: Los nombres de campos, etiquetas visibles, estados y valores específicos del dominio en tu implementación deben coincidir con lo especificado en tu CONTEXT.md. la interfaz debe sentirse como una herramienta interna del equipo de People & Talent de Nexova, aunque los nombres de la API sigan siendo los definidos por el tracker backend. Una implementación genérica que ignore el contexto de empresa no será aceptada.
+> ⚠️ IMPORTANTE: Los nombres de campos, etiquetas visibles, estados y valores específicos del dominio en tu implementación deben coincidir con lo especificado en tu hito3-context.md. la interfaz debe sentirse como una herramienta interna del equipo de People & Talent de Nexova, aunque los nombres de la API sigan siendo los definidos por el tracker backend. Una implementación genérica que ignore el contexto de empresa no será aceptada.
 
 > ⚠️ IMPORTANTE: Usa únicamente Next.js (App Router), React y TypeScript. No uses librerías externas de gestión de estado (Redux, Zustand, Jotai, etc.). El estado a nivel de componente con hooks es suficiente para este hito.
 
