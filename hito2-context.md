@@ -17,14 +17,16 @@ El código debe ser limpio, con nombres descriptivos, y cada función debe tener
 
 ## Estructura de archivos esperada:
 Tu implementación debe organizarse en archivos TypeScript separados por responsabilidad:
+```text
 src/
 ├── types/
-│   └── models.ts          Interfaces y tipos
+│   └── models.ts          # Interfaces y tipos
 ├── utils/
 │   ├── collections.ts     # Funciones para arrays
 │   ├── search.ts          # Búsquedas lineal y binaria
 │   ├── transformations.ts # Agregaciones y reportes
 │   └── validations.ts     # Validaciones de negocio
 └── index.html             # Página de prueba (opcional)
+```
 
 Puedes incluir una página HTML simple con Tailwind CSS para probar tus funciones manualmente si lo deseas, pero el foco principal está en la lógica TypeScript. Como mínimo, tu proyecto debe incluir un comando claro para validar o ejecutar el código TypeScript durante el desarrollo, por ejemplo npx tsc --noEmit, npm run typecheck o npx tsx src/demo.ts.

@@ -3,3 +3,4 @@ data/runtime/suppliers.json
 __pycache__/
 *.py[cod]
 *.egg-info/
+uis/backoffice/hito2/generated/
