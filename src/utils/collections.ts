@@ -30,9 +30,11 @@ export function filterCandidates(
     const matchesSkills = (criteria.skills ?? []).every((skill) =>
       candidateSkills.has(skill.toLowerCase()),
     );
-    const matchesSeniority = criteria.seniority === undefined || candidate.seniority === criteria.seniority;
+    const matchesSeniority =
+      criteria.seniority === undefined || candidate.seniority === criteria.seniority;
     const matchesAvailability =
-      criteria.availability === undefined || criteria.availability.includes(candidate.availability);
+      criteria.availability === undefined ||
+      criteria.availability.includes(candidate.availability);
     const matchesStatus = criteria.status === undefined || candidate.status === criteria.status;
     const matchesMinimumExperience =
       criteria.minYearsOfExperience === undefined ||

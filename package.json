@@ -2,6 +2,7 @@
   "name": "nexova-hito2-data-utilities",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "typecheck": "tsc --noEmit",
     "build:hito2-demo": "tsc -p tsconfig.browser.json",
