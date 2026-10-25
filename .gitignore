@@ -1,5 +1,7 @@
 data/runtime/suppliers.json
 .venv/
+node_modules/
 __pycache__/
 *.py[cod]
 *.egg-info/
+uis/backoffice/hito2/generated/
