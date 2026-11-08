@@ -9,7 +9,6 @@
       content="Nexova conecta empresas en crecimiento con talento excepcional a través de headhunting, outsourcing de atención al cliente y formación corporativa."
     />
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="./styles.css" />
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -45,7 +44,7 @@
       }
     </script>
   </head>
-  <body class="bg-slate-50 text-slate-800 antialiased">
+  <body class="bg-slate-50 text-slate-800 antialiased overflow-x-hidden">
     <a
       href="#contenido"
       class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-white focus:px-4 focus:py-2 focus:text-slate-900"
@@ -53,17 +52,35 @@
     >
 
     <header class="sticky top-0 z-40 border-b border-slate-200/70 bg-white/95 backdrop-blur" aria-label="Cabecera principal">
-      <div class="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-        <a href="#inicio" class="text-2xl font-extrabold tracking-tight text-slate-900" aria-label="Nexova inicio">Nexova</a>
+      <div class="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-6 lg:px-8">
+        <a href="#inicio" class="shrink-0 text-2xl font-extrabold tracking-tight text-slate-900" aria-label="Nexova inicio">Nexova</a>
 
-        <nav aria-label="Navegación principal">
-          <ul class="flex items-center gap-2 text-sm font-medium text-slate-700 sm:gap-6 sm:text-base">
+        <nav aria-label="Navegación principal" class="hidden lg:block">
+          <ul class="hidden items-center gap-6 text-base font-medium text-slate-700 lg:flex">
             <li><a class="rounded px-2 py-1 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-600" href="#inicio">Inicio</a></li>
             <li><a class="rounded px-2 py-1 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-600" href="#servicios">Servicios</a></li>
             <li><a class="rounded px-2 py-1 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-600" href="./application.html">Talento</a></li>
+            <li><a class="rounded px-2 py-1 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-600" href="./backoffice/">Incidencias</a></li>
             <li><a class="rounded px-2 py-1 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-600" href="#contacto">Contacto</a></li>
           </ul>
         </nav>
+
+        <details class="w-full lg:hidden">
+          <summary
+            class="inline-flex cursor-pointer list-none items-center rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-600"
+          >
+            Menú
+          </summary>
+          <nav aria-label="Navegación móvil" class="mt-3 w-full">
+            <ul class="flex w-full flex-col gap-2 text-sm font-medium text-slate-700">
+              <li><a class="block w-full rounded px-3 py-2 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-600" href="#inicio">Inicio</a></li>
+              <li><a class="block w-full rounded px-3 py-2 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-600" href="#servicios">Servicios</a></li>
+              <li><a class="block w-full rounded px-3 py-2 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-600" href="./application.html">Talento</a></li>
+              <li><a class="block w-full rounded px-3 py-2 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-600" href="./backoffice/">Incidencias</a></li>
+              <li><a class="block w-full rounded px-3 py-2 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-600" href="#contacto">Contacto</a></li>
+            </ul>
+          </nav>
+        </details>
       </div>
     </header>
 
