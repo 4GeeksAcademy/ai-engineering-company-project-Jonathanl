@@ -2,11 +2,16 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
+from services.api.security import get_current_user
 from services.api.supplier_store import SupplierStore
 from services.api.supplier_models import Category, Country, Supplier, SupplierCreate, SupplierStatus, SupplierUpdate
 
 
-router = APIRouter(prefix="/api/suppliers", tags=["suppliers"])
+router = APIRouter(
+    prefix="/api/suppliers",
+    tags=["suppliers"],
+    dependencies=[Depends(get_current_user)],
+)
 
 
 def get_supplier_store(request: Request) -> SupplierStore:

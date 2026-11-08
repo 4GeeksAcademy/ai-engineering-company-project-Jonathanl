@@ -6,10 +6,25 @@ from services.api.app import create_app
 from services.api.seed import seed_suppliers
 
 
+def authenticate_client(client):
+    registration = client.post(
+        "/users",
+        json={"email": "test@example.com", "password": "test-password"},
+    )
+    assert registration.status_code in (201, 409)
+    login = client.post(
+        "/auth/login",
+        data={"username": "test@example.com", "password": "test-password"},
+    )
+    assert login.status_code == 200
+    client.headers["Authorization"] = f"Bearer {login.json()['access_token']}"
+
+
 @pytest.fixture
 def api_client(tmp_path):
     app = create_app(tmp_path / "runtime" / "suppliers.json")
     with TestClient(app) as client:
+        authenticate_client(client)
         yield client
 
 
@@ -33,6 +48,7 @@ def test_startup_seeds_exactly_15_and_restarts_without_resetting_edits(tmp_path)
     database = tmp_path / "runtime" / "suppliers.json"
     app = create_app(database)
     with TestClient(app) as client:
+        authenticate_client(client)
         response = client.get("/api/suppliers")
         suppliers = response.json()
         assert response.status_code == 200
@@ -43,6 +59,7 @@ def test_startup_seeds_exactly_15_and_restarts_without_resetting_edits(tmp_path)
         assert changed.status_code == 200
 
     with TestClient(create_app(database)) as client:
+        authenticate_client(client)
         suppliers = client.get("/api/suppliers").json()
         assert len(suppliers) == 15
         assert next(item for item in suppliers if item["id"] == supplier_id)["monthly_rate"] == 1300

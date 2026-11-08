@@ -6,15 +6,22 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from threading import Lock
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from services.api.database import CompanyDatabase
+from services.api.auth import router as auth_router
 from services.api.incidents import CATEGORIES, STATUSES, analyze_stream, render_csv
+from services.api.profiles import router as profiles_router
+from services.api.security import get_current_user
+from services.api.settings import load_settings
 from services.api.supplier_seed import SUPPLIERS_SEED
 from services.api.supplier_store import SupplierStore
 from services.api.suppliers import router as suppliers_router
+from services.api.user_service import UserService
+from services.api.users import router as users_router
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -26,13 +33,18 @@ def create_app(supplier_db_path: Path | None = None):
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        supplier_store = SupplierStore(db_path)
-        supplier_store.seed_if_empty(SUPPLIERS_SEED)
-        app.state.supplier_store = supplier_store
+        settings = load_settings()
+        database = CompanyDatabase(db_path)
         try:
+            supplier_store = SupplierStore(database)
+            supplier_store.seed_if_empty(SUPPLIERS_SEED)
+            app.state.settings = settings
+            app.state.database = database
+            app.state.supplier_store = supplier_store
+            app.state.user_service = UserService(database)
             yield
         finally:
-            supplier_store.close()
+            database.close()
 
     app = FastAPI(lifespan=lifespan)
     latest = None
@@ -57,7 +69,7 @@ def create_app(supplier_db_path: Path | None = None):
             message = str(error.detail)
         return JSONResponse({"error": message}, status_code=error.status_code, headers=error.headers)
 
-    @app.post("/api/incidents/analyze")
+    @app.post("/api/incidents/analyze", dependencies=[Depends(get_current_user)])
     async def analyze(request: Request):
         nonlocal latest
         if request.headers.get("content-type", "").split(";", 1)[0].strip() != "multipart/form-data":
@@ -101,7 +113,7 @@ def create_app(supplier_db_path: Path | None = None):
             latest = render_csv(results)
         return summary
 
-    @app.get("/api/incidents/results/export")
+    @app.get("/api/incidents/results/export", dependencies=[Depends(get_current_user)])
     async def export():
         with lock:
             content = latest
@@ -118,6 +130,9 @@ def create_app(supplier_db_path: Path | None = None):
         return RedirectResponse("/uis/backoffice/", status_code=302)
 
     app.include_router(suppliers_router)
+    app.include_router(auth_router)
+    app.include_router(users_router)
+    app.include_router(profiles_router)
     app.mount("/uis/backoffice", StaticFiles(directory=ROOT / "uis" / "backoffice", html=True), name="backoffice")
     app.mount("/uis", StaticFiles(directory=ROOT / "uis", html=True), name="uis")
 
