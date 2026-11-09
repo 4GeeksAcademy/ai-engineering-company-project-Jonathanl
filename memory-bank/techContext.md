@@ -4,13 +4,13 @@
 
 Este repositorio parte de una plantilla transversal AI Engineering, adaptada a Nexova. Mantener las responsabilidades existentes: `uis/` para aplicaciones de interfaz, `services/` para APIs y workers, `data/` para datos y pipelines, `agents/` para agentes de producto, `skills/` para capacidades reutilizables, `workflows/` para orquestación, `packages/` y `shared/` para reutilización, y `docs/` para documentación transversal. No crear un segundo árbol paralelo.
 
-La capa de aplicación definida para este hito futuro es:
+La capa de aplicación definida para este hito futuro (no implica que las apps ya existan) es:
 
-- `uis/website`: web pública de Nexova, alineada con marca y contenido de `BRIEFING.md`.
-- `uis/backoffice`: aplicaciones internas; mantener sus flujos y layout separados de la web pública. El repo ya contiene páginas estáticas de backoffice y `uis/backoffice/hito2/`.
+- `uis/website`: web pública de Nexova; su vista de entrada debe responder en `/` y su marca/contenido deben alinearse con `BRIEFING.md`.
+- `uis/backoffice`: aplicación interna con layout propio y separado de la web pública; su vista de entrada debe responder en `/`. El repo ya contiene páginas estáticas de backoffice y `uis/backoffice/hito2/`, que deben revisarse antes de añadir o reorganizar contenido.
 - `services/`: APIs y servicios backend. La API existente está en `services/api/`.
 
-Leer el README de la carpeta correspondiente antes de añadir aplicaciones o servicios. `uis/README.md` recomienda organizar por responsabilidades e incluir documentación técnica/funcional por aplicación; `services/README.md` pide documentar objetivo, tecnología y ejecución de cada servicio.
+Leer el README de la carpeta correspondiente antes de añadir aplicaciones o servicios. `uis/README.md` recomienda organizar por responsabilidades e incluir documentación técnica/funcional por aplicación; `services/README.md` pide documentar objetivo, tecnología y ejecución de cada servicio. No crear un árbol alternativo ni asumir que `uis/talent-pipeline/` reemplaza `uis/website/`.
 
 ## Stack comprobado en el repositorio
 

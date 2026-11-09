@@ -37,13 +37,13 @@ La aprobación de un cambio debe ser explícita y específica; una petición gen
 
 ## Ubicación de aplicaciones
 
-No inventar un árbol de aplicaciones paralelo:
+No inventar un árbol de aplicaciones paralelo. Estas son las ubicaciones previstas para la capa de aplicación; documentarlas no significa que las aplicaciones estén implementadas:
 
-- `uis/website/`: sitio público de Nexova, con marca y contenido alineados con `BRIEFING.md`.
-- `uis/backoffice/`: interfaces internas, separadas visual y funcionalmente del sitio público. Ya existen páginas y una demo aquí; revisar antes de añadir.
+- `uis/website/`: sitio público de Nexova. Su página de entrada debe atender `/`, con marca y contenido alineados con `BRIEFING.md`.
+- `uis/backoffice/`: aplicación interna con layout propio y separada del sitio público; su vista de entrada debe atender `/`. Ya existen páginas estáticas y una demo bajo `uis/backoffice/`; revisarlas antes de añadir o reorganizar contenido.
 - `services/`: APIs y servicios backend; revisar `services/README.md` antes de añadir módulos o servicios.
 
-Lee `uis/README.md` o `services/README.md` antes de poner código en esas áreas. El hito de infraestructura de agentes no implica crear estas aplicaciones.
+Lee el README correspondiente antes de poner código en esas áreas (`uis/README.md` para interfaces y `services/README.md` para backend). El hito de infraestructura de agentes no implica crear estas aplicaciones. No trates `uis/talent-pipeline/` ni las páginas estáticas existentes como sustituto de `uis/website/` sin una decisión explícita del desarrollador.
 
 ## Tarea recurrente
 
