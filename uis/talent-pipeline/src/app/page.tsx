@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import LogoutButton from "@/components/LogoutButton";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { getCandidates } from "@/lib/api";
@@ -77,7 +78,7 @@ function CandidatesList() {
           <a href="#equipo">Equipo</a>
           <a href="#informes">Informes</a>
         </nav>
-        <div className="user"><span className="avatar" aria-hidden="true">PT</span><span className="user-name">People &amp; Talent</span></div>
+        <div className="user"><span className="avatar" aria-hidden="true">PT</span><span className="user-name">People &amp; Talent</span><LogoutButton /></div>
       </header>
 
       <main className="container">

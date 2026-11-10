@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import LogoutButton from "@/components/LogoutButton";
 import { useState, type FormEvent } from "react";
 import { createCandidate, replaceCandidate } from "@/lib/api";
 import type { Candidate, CandidateCreate } from "@/types/candidate";
@@ -122,7 +123,7 @@ export default function CandidateForm({ mode, candidate }: CandidateFormProps) {
       <header className="topbar">
         <Link className="brand" href="/">nexova<span>.</span></Link>
         <nav className="nav" aria-label="Navegación principal"><Link href="/" aria-current="page">Candidaturas</Link><a href="/#equipo">Equipo</a><a href="/#informes">Informes</a></nav>
-        <div className="user"><span className="avatar" aria-hidden="true">PT</span><span className="user-name">People &amp; Talent</span></div>
+        <div className="user"><span className="avatar" aria-hidden="true">PT</span><span className="user-name">People &amp; Talent</span><LogoutButton /></div>
       </header>
       <main className="container">
         <Link className="back" href={isCreate ? "/" : `/candidates/${encodeURIComponent(candidate!.id)}`}>← {isCreate ? "Volver al pipeline" : "Volver a la candidatura"}</Link>

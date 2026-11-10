@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import LogoutButton from "@/components/LogoutButton";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { addCandidateNote, deleteCandidateNote, getCandidate, getCandidateNotes, updateCandidate } from "@/lib/api";
@@ -131,7 +132,7 @@ export default function CandidateDetailPage() {
         <nav className="nav" aria-label="Navegación principal">
           <Link href="/" aria-current="page">Candidaturas</Link><a href="/#equipo">Equipo</a><a href="/#informes">Informes</a>
         </nav>
-        <div className="user"><span className="avatar" aria-hidden="true">PT</span><span className="user-name">People &amp; Talent</span></div>
+        <div className="user"><span className="avatar" aria-hidden="true">PT</span><span className="user-name">People &amp; Talent</span><LogoutButton /></div>
       </header>
       <main className="container">
         <Link className="back" href="/">← Volver al pipeline</Link>
