@@ -59,6 +59,7 @@ export default function AccountProfilePage() {
         <nav className="nav" aria-label="Navegación principal">
           <Link href="/">Candidaturas</Link>
           <Link href="/account/profile" aria-current="page">Mi perfil</Link>
+          <Link href="/account/change-password">Contraseña</Link>
         </nav>
         <div className="user"><span className="user-name">Cuenta</span><LogoutButton /></div>
       </header>

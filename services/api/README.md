@@ -16,6 +16,20 @@ con `openssl rand -hex 32`) y configura ambas variables. No compartas la clave
 ni la guardes en Git. `SECRET_KEY` no tiene valor por defecto y la API no inicia
 si falta alguna de estas variables.
 
+### Resend y recuperación de contraseña
+
+Configura `RESEND_API_KEY` en `.env` (nunca en el código fuente) y
+`RESEND_FROM_EMAIL` con un remitente permitido por tu cuenta de Resend. Para
+desarrollo, Resend permite el remitente `onboarding@resend.dev` sujeto a sus
+restricciones de cuenta. `FRONTEND_BASE_URL` indica el origen del frontend que
+recibirá el enlace (por defecto `http://localhost:3000`) y
+`PASSWORD_RESET_EXPIRE_MINUTES` establece la expiración entre 15 y 60 minutos
+(por defecto 30). Si falta `RESEND_API_KEY`, la solicitud de recuperación
+mantiene su respuesta genérica pero no se envía ningún correo.
+
+En el frontend, configura `NEXOVA_API_URL=http://localhost:5050` para su proxy
+a la API, además de la URL del servicio Tracker requerida por esa aplicación.
+
 `uv run seed` carga los 15 proveedores del contexto solo si la tabla esta vacia e
 informa cuantas filas inserto. Repetir el comando no duplica ni sobrescribe
 proveedores. Uvicorn tambien inicializa la base automaticamente si aun esta

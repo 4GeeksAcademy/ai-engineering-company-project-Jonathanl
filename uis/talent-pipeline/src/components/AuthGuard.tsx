@@ -4,7 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AUTH_TOKEN_KEY } from "@/lib/auth";
 
-const PUBLIC_PATHS = new Set(["/login", "/register"]);
+const PUBLIC_PATHS = new Set(["/login", "/register", "/forgot-password", "/reset-password"]);
 type GuardState = "checking" | "authenticated" | "unavailable";
 
 export default function AuthGuard({ children }: Readonly<{ children: React.ReactNode }>) {

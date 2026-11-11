@@ -1,10 +1,14 @@
+import hashlib
+import secrets
+from datetime import datetime, timedelta, timezone
 from typing import Literal
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 
-from services.api.security import create_access_token, get_current_user, get_user_service, verify_password
+from services.api.security import create_access_token, get_current_user, get_user_service, hash_password, verify_password
 from services.api.user_models import Profile, User, UserRole
 from services.api.user_service import UserService
 
@@ -18,6 +22,20 @@ class AuthenticatedUser(BaseModel):
     email: EmailStr
     role: UserRole
     profile: Profile
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str = Field(min_length=8, max_length=128)
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=8, max_length=128)
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -54,3 +72,71 @@ def current_user_details(
     if profile is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Perfil no encontrado.")
     return AuthenticatedUser(email=current_user.email, role=current_user.role, profile=profile)
+
+
+async def send_password_reset_email(api_key: str, sender: str, recipient: str, reset_url: str) -> None:
+    async with httpx.AsyncClient(timeout=10) as client:
+        response = await client.post(
+            "https://api.resend.com/emails",
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            json={
+                "from": sender,
+                "to": [recipient],
+                "subject": "Restablece tu contraseña de Nexova",
+                "text": (
+                    "Hemos recibido una solicitud para restablecer tu contraseña. "
+                    f"Abre este enlace en tu móvil o equipo: {reset_url}\n\n"
+                    "El enlace caduca pronto y solo se puede usar una vez. "
+                    "Si no solicitaste este cambio, ignora este correo."
+                ),
+            },
+        )
+        response.raise_for_status()
+
+
+@router.post("/forgot-password", status_code=status.HTTP_200_OK)
+async def forgot_password(
+    payload: ForgotPasswordRequest,
+    request: Request,
+    users: UserService = Depends(get_user_service),
+):
+    user = users.get_user_by_email(str(payload.email))
+    settings = request.app.state.settings
+    if user is not None and user.is_active and settings.resend_api_key:
+        token = secrets.token_urlsafe(32)
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+        expires_at = datetime.now(timezone.utc) + timedelta(minutes=settings.password_reset_expire_minutes)
+        users.password_reset_tokens.create(token_hash, user.id, expires_at.isoformat())
+        reset_url = f"{settings.frontend_base_url}/reset-password?token={token}"
+        try:
+            await send_password_reset_email(
+                settings.resend_api_key,
+                settings.resend_from_email,
+                str(user.email),
+                reset_url,
+            )
+        except (httpx.HTTPError, ValueError):
+            # Keep the public response indistinguishable even if delivery fails.
+            users.invalidate_password_reset_token(token_hash)
+    return {"message": "Si esa dirección está registrada, recibirás un enlace en breve."}
+
+
+@router.post("/reset-password")
+def reset_password(payload: ResetPasswordRequest, request: Request, users: UserService = Depends(get_user_service)):
+    token_hash = hashlib.sha256(payload.token.encode()).hexdigest()
+    now = datetime.now(timezone.utc).isoformat()
+    if not users.reset_password(token_hash, now, hash_password(payload.new_password)):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="El enlace no es válido o ha caducado. Solicita uno nuevo.")
+    return {"message": "La contraseña se ha actualizado correctamente."}
+
+
+@router.post("/change-password")
+def change_password(
+    payload: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    users: UserService = Depends(get_user_service),
+):
+    if not verify_password(payload.current_password, current_user.hashed_password):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="La contraseña actual es incorrecta.")
+    users.update_password(current_user.id, hash_password(payload.new_password))
+    return {"message": "La contraseña se ha actualizado correctamente."}

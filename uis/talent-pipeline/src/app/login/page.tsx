@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { AuthRequestError, login } from "@/lib/auth";
 
 export default function LoginPage() {
@@ -11,6 +11,11 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [passwordResetSuccess, setPasswordResetSuccess] = useState(false);
+
+  useEffect(() => {
+    setPasswordResetSuccess(new URLSearchParams(window.location.search).get("passwordReset") === "success");
+  }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -33,6 +38,7 @@ export default function LoginPage() {
         <p className="eyebrow">People &amp; Talent</p>
         <h1 id="login-title">Inicia sesión</h1>
         <p className="lead">Accede a tu espacio de trabajo.</p>
+        {passwordResetSuccess && <p className="feedback-success" role="status">Contraseña actualizada. Ya puedes iniciar sesión.</p>}
         <form className="auth-form" onSubmit={handleSubmit}>
           <div className="form-field">
             <label htmlFor="email">Email</label>
@@ -42,6 +48,7 @@ export default function LoginPage() {
             <label htmlFor="password">Contraseña</label>
             <input className="control" id="password" type="password" autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} />
           </div>
+          <p className="auth-switch auth-forgot-link"><Link href="/forgot-password">¿Olvidaste tu contraseña?</Link></p>
           {error && <p className="feedback-error" role="alert">{error}</p>}
           <button className="primary-button auth-submit" type="submit" disabled={isSubmitting}>{isSubmitting ? "Accediendo…" : "Iniciar sesión"}</button>
         </form>

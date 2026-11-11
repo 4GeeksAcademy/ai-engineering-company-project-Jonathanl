@@ -109,6 +109,30 @@ export function updateMyProfile(data: { name: string; phone: string; address: st
   });
 }
 
+async function publicAuthRequest(path: string, body: unknown): Promise<void> {
+  const response = await fetch(`${AUTH_API_BASE}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) await throwApiError(response);
+}
+
+export function requestPasswordReset(email: string): Promise<void> {
+  return publicAuthRequest("/auth/forgot-password", { email });
+}
+
+export function resetPassword(token: string, newPassword: string): Promise<void> {
+  return publicAuthRequest("/auth/reset-password", { token, new_password: newPassword });
+}
+
+export function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+  return authenticatedRequest<void>("/auth/change-password", {
+    method: "POST",
+    body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+  });
+}
+
 export async function registerAndLogin(data: RegisterData): Promise<void> {
   const registration = await fetch(`${AUTH_API_BASE}/users`, {
     method: "POST",

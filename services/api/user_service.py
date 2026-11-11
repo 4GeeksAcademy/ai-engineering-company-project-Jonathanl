@@ -3,7 +3,7 @@ from uuid import UUID, uuid4
 
 from services.api.database import CompanyDatabase
 from services.api.user_models import Profile, ProfileUpdate, User, UserCreate, UserRole, UserUpdate
-from services.api.user_store import DuplicateEmailError, ProfileStore, UserStore, normalize_email
+from services.api.user_store import DuplicateEmailError, PasswordResetTokenStore, ProfileStore, UserStore, normalize_email
 
 
 class LastActiveAdminError(ValueError):
@@ -15,6 +15,7 @@ class UserService:
         self._lock = database.lock
         self.users = UserStore(database)
         self.profiles = ProfileStore(database)
+        self.password_reset_tokens = PasswordResetTokenStore(database)
 
     def create_user(
         self,
@@ -63,6 +64,19 @@ class UserService:
 
     def get_user_by_email(self, email: str) -> User | None:
         return self.users.get_by_email(email)
+
+    def update_password(self, user_id: UUID, hashed_password: str) -> User | None:
+        with self._lock:
+            updated = self.users.update_password(user_id, hashed_password)
+            if updated is not None:
+                self.password_reset_tokens.delete_for_user(user_id)
+            return updated
+
+    def reset_password(self, token_hash: str, now: str, hashed_password: str) -> bool:
+        return self.password_reset_tokens.consume(token_hash, now, hashed_password, self.users)
+
+    def invalidate_password_reset_token(self, token_hash: str) -> None:
+        self.password_reset_tokens.delete(token_hash)
 
     def update_user(self, user_id: UUID, update: UserUpdate) -> User | None:
         with self._lock:
