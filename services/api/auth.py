@@ -1,4 +1,5 @@
 import hashlib
+import logging
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Literal
@@ -39,6 +40,7 @@ class ChangePasswordRequest(BaseModel):
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+logger = logging.getLogger(__name__)
 
 
 @router.post("/login", response_model=AccessToken)
@@ -102,7 +104,11 @@ async def forgot_password(
 ):
     user = users.get_user_by_email(str(payload.email))
     settings = request.app.state.settings
-    if user is not None and user.is_active and settings.resend_api_key:
+    if user is None or not user.is_active:
+        logger.warning("Password reset email not sent: account not found or inactive.")
+    elif not settings.resend_api_key:
+        logger.warning("Password reset email not sent: RESEND_API_KEY is not configured.")
+    else:
         token = secrets.token_urlsafe(32)
         token_hash = hashlib.sha256(token.encode()).hexdigest()
         expires_at = datetime.now(timezone.utc) + timedelta(minutes=settings.password_reset_expire_minutes)
@@ -115,7 +121,12 @@ async def forgot_password(
                 str(user.email),
                 reset_url,
             )
-        except (httpx.HTTPError, ValueError):
+            logger.warning("Password reset email accepted by Resend.")
+        except httpx.HTTPStatusError as error:
+            logger.error("Resend rejected password reset email (HTTP %s).", error.response.status_code)
+            users.invalidate_password_reset_token(token_hash)
+        except (httpx.RequestError, ValueError) as error:
+            logger.error("Could not send password reset email (%s).", type(error).__name__)
             # Keep the public response indistinguishable even if delivery fails.
             users.invalidate_password_reset_token(token_hash)
     return {"message": "Si esa dirección está registrada, recibirás un enlace en breve."}
