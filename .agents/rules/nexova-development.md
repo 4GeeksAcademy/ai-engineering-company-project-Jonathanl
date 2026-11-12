@@ -4,6 +4,7 @@
 
 - Lee los tres archivos de `memory-bank/` al inicio de cada sesión, como indica `AGENTS.md`; consulta `BRIEFING.md` para requisitos de negocio vigentes.
 - Respeta la estructura de la plantilla: interfaz en `uis/`, API/servicios en `services/`, datos en `data/`, agentes en `agents/`; no crees árboles paralelos. Lee el README del área antes de añadir código.
+- Ubicación de aplicaciones: `uis/website/` para el sitio público, `uis/backoffice/` para la aplicación interna y `services/` para APIs/servicios. Mantén website y backoffice separados; las páginas de backoffice ya existentes no convierten a `uis/talent-pipeline/` en sustituto de esas rutas. Este hito solo documenta las ubicaciones, no pide crear ni mover aplicaciones.
 - Distingue capacidades existentes de necesidades futuras: el briefing es contexto y no prueba que una feature, integración o métrica ya esté implementada.
 - Usa datos ficticios en fixtures, documentación y demostraciones. No añadas PII de candidatos, empleados o clientes a logs, respuestas innecesarias, commits ni ejemplos.
 - Para ranking o matching de candidatos, documenta criterios y evidencia; deja revisión y decisión final a una persona. No infieras atributos protegidos ni uses proxies discriminatorios.
