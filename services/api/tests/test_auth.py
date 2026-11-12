@@ -1,4 +1,6 @@
+from dataclasses import replace
 from datetime import datetime, timedelta, timezone
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -76,6 +78,43 @@ def test_login_rejects_invalid_credentials(client_and_app):
 
     assert login(client, password="wrong-password").status_code == 401
     assert login(client, email="missing@example.com").status_code == 401
+
+
+def test_forgot_password_sends_email_via_resend(client_and_app):
+    client, app = client_and_app
+    register(client)
+    app.state.settings = replace(
+        app.state.settings,
+        resend_api_key="test-resend-key",
+        resend_from_email="verified@example.com",
+    )
+    response = AsyncMock()
+    response.raise_for_status = lambda: None
+    post = AsyncMock(return_value=response)
+
+    with patch("services.api.auth.httpx.AsyncClient") as client_class:
+        client_class.return_value.__aenter__.return_value.post = post
+        result = client.post("/auth/forgot-password", json={"email": "user@example.com"})
+
+    assert result.status_code == 200
+    assert result.json() == {"message": "Si esa dirección está registrada, recibirás un enlace en breve."}
+    post.assert_awaited_once()
+    args, kwargs = post.await_args
+    assert args == ("https://api.resend.com/emails",)
+    assert kwargs["headers"]["Authorization"] == "Bearer test-resend-key"
+    assert kwargs["json"]["from"] == "verified@example.com"
+    assert kwargs["json"]["to"] == ["user@example.com"]
+    assert "reset-password?token=" in kwargs["json"]["text"]
+
+
+def test_forgot_password_keeps_generic_response_when_resend_not_configured(client_and_app):
+    client, _ = client_and_app
+    register(client)
+
+    response = client.post("/auth/forgot-password", json={"email": "user@example.com"})
+
+    assert response.status_code == 200
+    assert response.json() == {"message": "Si esa dirección está registrada, recibirás un enlace en breve."}
 
 
 @pytest.mark.parametrize(
