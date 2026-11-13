@@ -1,0 +1,143 @@
+"""Load validated historical analyzer tickets into the Nexova incident store."""
+
+from __future__ import annotations
+
+import argparse
+import csv
+import sys
+from collections import Counter
+from datetime import date, datetime, time, timezone
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from packages.shared.incident_csv import (  # noqa: E402
+    CSV_CATEGORIES,
+    CSV_REQUIRED_COLUMNS,
+    CSV_STATUSES,
+    validate_incident_csv_row,
+)
+from services.api.database import CompanyDatabase  # noqa: E402
+from services.api.incident_models import IncidentCreate  # noqa: E402
+from services.api.incident_store import IncidentStore  # noqa: E402
+
+DEFAULT_CSV = ROOT / "scripts" / "incidents-nexova.csv"
+DEFAULT_DB = ROOT / "data" / "runtime" / "suppliers.json"
+
+STATUS_MAP = {"OPEN": "open", "CLOSED": "resolved", "DISCARDED": "discarded"}
+CATEGORY_MAP = {
+    "TECHNICAL": "technical_failure",
+    "BILLING": "process_error",
+    "ACCESS": "technical_failure",
+    "HR_QUERY": "process_error",
+    "COMPLAINT": "client_complaint",
+}
+
+
+def _read_rows(csv_path: Path) -> tuple[list[dict[str, str | list[str] | None]], set[str]]:
+    with csv_path.open("r", encoding="utf-8-sig", newline="") as csv_file:
+        reader = csv.DictReader(csv_file, strict=True)
+        if reader.fieldnames is None:
+            raise ValueError("El CSV esta vacio o no tiene cabecera.")
+        if len(set(reader.fieldnames)) != len(reader.fieldnames):
+            raise ValueError("La cabecera contiene columnas duplicadas.")
+        missing = [column for column in CSV_REQUIRED_COLUMNS if column not in reader.fieldnames]
+        if missing:
+            raise ValueError("Faltan columnas requeridas: " + ", ".join(missing))
+        rows = list(reader)
+
+    id_counts = Counter(
+        row.get("ticket_id", "").strip()
+        for row in rows
+        if isinstance(row.get("ticket_id"), str) and row.get("ticket_id", "").strip()
+    )
+    duplicate_ids = {ticket_id for ticket_id, count in id_counts.items() if count > 1}
+    return rows, duplicate_ids
+
+
+def transform_row(row: dict[str, str | list[str] | None]) -> tuple[str, IncidentCreate, datetime]:
+    """Validate and translate one analyzer CSV row to the incidents domain model."""
+    ticket_id = row.get("ticket_id")
+    description = row.get("description")
+    raw_date = row.get("date")
+    raw_status = row.get("status")
+    raw_category = row.get("category")
+    if not all(isinstance(value, str) for value in (ticket_id, description, raw_date, raw_status, raw_category)):
+        raise ValueError("Faltan datos requeridos para transformar la fila.")
+
+    title = description[:120].strip()
+    if not title:
+        raise ValueError("description no genera un titulo valido.")
+
+    created_at = datetime.combine(date.fromisoformat(raw_date.strip()), time.min, tzinfo=timezone.utc)
+    try:
+        status = STATUS_MAP[raw_status.strip()]
+        category = CATEGORY_MAP[raw_category.strip()]
+    except KeyError as error:
+        raise ValueError(f"No hay mapeo para {error.args[0]}.") from None
+
+    incident = IncidentCreate(
+        title=title,
+        description=description,
+        category=category,
+        status=status,
+        origin="customer",
+        branch="central",
+    )
+    return ticket_id.strip(), incident, created_at
+
+
+def seed_incidents(csv_path: Path = DEFAULT_CSV, db_path: Path = DEFAULT_DB) -> tuple[int, int, list[tuple[int, list[str]]]]:
+    """Seed valid rows idempotently; return inserted/valid counts and invalid reasons."""
+    rows, duplicate_ids = _read_rows(Path(csv_path))
+    invalid: list[tuple[int, list[str]]] = []
+    to_insert: list[tuple[str, IncidentCreate, datetime]] = []
+
+    for row_number, row in enumerate(rows, start=2):
+        issues = validate_incident_csv_row(row, duplicate_ids)
+        if issues:
+            invalid.append((row_number, issues))
+            continue
+        try:
+            to_insert.append(transform_row(row))
+        except (ValueError, TypeError) as error:
+            invalid.append((row_number, [str(error)]))
+
+    database = CompanyDatabase(Path(db_path))
+    try:
+        store = IncidentStore(database)
+        inserted = 0
+        for source_id, incident, created_at in to_insert:
+            if store.exists_source_id(source_id):
+                continue
+            store.create(incident, source_id=source_id, created_at=created_at)
+            inserted += 1
+    finally:
+        database.close()
+
+    return inserted, len(to_insert), invalid
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Carga incidencias históricas válidas desde el CSV del analizador.")
+    parser.add_argument("csv_file", nargs="?", type=Path, default=DEFAULT_CSV, help="Ruta al CSV histórico")
+    parser.add_argument("--db", type=Path, default=DEFAULT_DB, help="Ruta de la base TinyDB (por defecto, base local de API)")
+    args = parser.parse_args(argv)
+
+    try:
+        inserted, valid, invalid = seed_incidents(args.csv_file, args.db)
+    except (OSError, UnicodeError, csv.Error, ValueError) as error:
+        print(f"No se pudo cargar el CSV: {error}", file=sys.stderr)
+        return 2
+
+    print(f"Incidencias válidas: {valid}; insertadas en esta ejecución: {inserted}.")
+    print(f"Filas inválidas descartadas: {len(invalid)}.")
+    for row_number, reasons in invalid:
+        print(f"  Fila {row_number}: {', '.join(reasons)}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

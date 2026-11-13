@@ -14,6 +14,8 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from services.api.database import CompanyDatabase
 from services.api.auth import router as auth_router
 from services.api.incidents import CATEGORIES, STATUSES, analyze_stream, render_csv
+from services.api.incident_store import IncidentStore
+from services.api.incident_routes import router as incident_router
 from services.api.profiles import router as profiles_router
 from services.api.security import get_current_user
 from services.api.settings import load_settings
@@ -41,6 +43,7 @@ def create_app(supplier_db_path: Path | None = None):
             app.state.settings = settings
             app.state.database = database
             app.state.supplier_store = supplier_store
+            app.state.incident_store = IncidentStore(database)
             app.state.user_service = UserService(database)
             yield
         finally:
@@ -68,6 +71,13 @@ def create_app(supplier_db_path: Path | None = None):
         else:
             message = str(error.detail)
         return JSONResponse({"error": message}, status_code=error.status_code, headers=error.headers)
+
+    @app.exception_handler(Exception)
+    async def handle_unexpected_error(request: Request, error: Exception):
+        return JSONResponse(
+            {"error": "Ha ocurrido un error interno. Inténtalo de nuevo más tarde."},
+            status_code=500,
+        )
 
     @app.post("/api/incidents/analyze", dependencies=[Depends(get_current_user)])
     async def analyze(request: Request):
@@ -130,6 +140,7 @@ def create_app(supplier_db_path: Path | None = None):
         return RedirectResponse("/uis/backoffice/", status_code=302)
 
     app.include_router(suppliers_router)
+    app.include_router(incident_router)
     app.include_router(auth_router)
     app.include_router(users_router)
     app.include_router(profiles_router)

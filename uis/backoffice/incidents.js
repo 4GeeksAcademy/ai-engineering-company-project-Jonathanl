@@ -70,7 +70,7 @@ byId("upload-form").addEventListener("submit", async (event) => {
   const form = new FormData();
   form.append("file", file);
   try {
-    const response = await fetch("/api/incidents/analyze", { method: "POST", body: form });
+    const response = await fetch("/api/incidents/analyze", { method: "POST", body: form, headers: window.incidentAuthHeaders ? window.incidentAuthHeaders() : {} });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || "No se pudo analizar el archivo.");
     showResults(result);
@@ -88,7 +88,7 @@ byId("upload-form").addEventListener("submit", async (event) => {
 byId("download").addEventListener("click", async () => {
   byId("download").disabled = true;
   try {
-    const response = await fetch("/api/incidents/results/export");
+    const response = await fetch("/api/incidents/results/export", { headers: window.incidentAuthHeaders ? window.incidentAuthHeaders() : {} });
     if (!response.ok) {
       const result = await response.json();
       throw new Error(result.error || "No se pudo descargar el CSV.");
