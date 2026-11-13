@@ -25,8 +25,11 @@ si falta alguna de estas variables.
 
 `uv run seed` carga los 15 proveedores del contexto solo si la tabla esta vacia e
 informa cuantas filas inserto. Repetir el comando no duplica ni sobrescribe
-proveedores. Uvicorn tambien inicializa la base automaticamente si aun esta
-vacia.
+proveedores. Al arrancar con la base local predeterminada, la API también carga
+`scripts/incidents-nexova.csv` mediante el seed idempotente: inserta las filas
+válidas que aún no existan e informa en el log el resumen y las filas
+descartadas. El seed de incidencias puede activarse en una base personalizada
+mediante `create_app(..., seed_incidents_on_startup=True)`.
 
 Backoffice: http://localhost:5050/uis/backoffice/
 Gestor de incidencias: http://localhost:5050/uis/backoffice/ (inicia sesión con una cuenta registrada)
@@ -41,9 +44,10 @@ La API sirve ambas interfaces en el mismo origen. No abras el backoffice con
 ### Gestor de incidencias
 
 Las rutas de gestión requieren `Authorization: Bearer <token>`. El CRUD usa la
-tabla `incidents` de la misma base TinyDB que proveedores y usuarios, pero no
-siembra datos automáticamente: ejecuta `python scripts/seed_incidents.py` para
-cargar el histórico CSV. Las validaciones del gestor responden `400` con
+tabla `incidents` de la misma base TinyDB que proveedores y usuarios. El
+histórico se carga automáticamente al iniciar la API local con su base
+predeterminada; también puede ejecutarse manualmente con
+`python scripts/seed_incidents.py`. Las validaciones del gestor responden `400` con
 `error.field` y `error.message`; una incidencia inexistente devuelve `404`.
 
 | Metodo | Ruta | Uso |

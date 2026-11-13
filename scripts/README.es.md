@@ -10,9 +10,12 @@ Esta carpeta contiene **scripts auxiliares** del monorepo: automatizaciones de d
 `seed_incidents.py` valida el CSV histórico con las reglas compartidas desde
 `packages/shared/incident_csv.py`, transforma estados, categorías, título y
 fecha al modelo de incidencias y asigna `origin=customer` y `branch=central`.
-Los `ticket_id` duplicados se descartan como inválidos; ejecuciones sucesivas
-no duplican registros ya insertados. Las filas inválidas se resumen al final
-sin imprimir emails ni otros datos de cada ticket.
+Los `ticket_id` duplicados se descartan como inválidos. Si falta la columna o
+el valor de `ticket_id`, el seed usa `title + created_at` como clave de
+idempotencia; también descarta claves fallback repetidas dentro del CSV.
+Ejecuciones sucesivas no duplican registros ya insertados. Las filas inválidas
+se resumen al final sin imprimir emails ni otros datos de cada ticket. El
+analizador mantiene su validación estricta de `ticket_id`.
 
 Desde la raíz del repositorio:
 

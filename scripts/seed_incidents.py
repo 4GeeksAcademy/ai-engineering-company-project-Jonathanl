@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import json
 import sys
 from collections import Counter
 from datetime import date, datetime, time, timezone
@@ -43,7 +44,12 @@ def _read_rows(csv_path: Path) -> tuple[list[dict[str, str | list[str] | None]],
             raise ValueError("El CSV esta vacio o no tiene cabecera.")
         if len(set(reader.fieldnames)) != len(reader.fieldnames):
             raise ValueError("La cabecera contiene columnas duplicadas.")
-        missing = [column for column in CSV_REQUIRED_COLUMNS if column not in reader.fieldnames]
+        # ticket_id is optional for the seed: rows without it use title+created_at.
+        missing = [
+            column
+            for column in CSV_REQUIRED_COLUMNS
+            if column != "ticket_id" and column not in reader.fieldnames
+        ]
         if missing:
             raise ValueError("Faltan columnas requeridas: " + ", ".join(missing))
         rows = list(reader)
@@ -64,7 +70,7 @@ def transform_row(row: dict[str, str | list[str] | None]) -> tuple[str, Incident
     raw_date = row.get("date")
     raw_status = row.get("status")
     raw_category = row.get("category")
-    if not all(isinstance(value, str) for value in (ticket_id, description, raw_date, raw_status, raw_category)):
+    if not all(isinstance(value, str) for value in (description, raw_date, raw_status, raw_category)):
         raise ValueError("Faltan datos requeridos para transformar la fila.")
 
     title = description[:120].strip()
@@ -86,7 +92,13 @@ def transform_row(row: dict[str, str | list[str] | None]) -> tuple[str, Incident
         origin="customer",
         branch="central",
     )
-    return ticket_id.strip(), incident, created_at
+    normalized_ticket_id = ticket_id.strip() if isinstance(ticket_id, str) else ""
+    source_id = (
+        normalized_ticket_id
+        if normalized_ticket_id
+        else "fallback:" + json.dumps([title, created_at.isoformat()], ensure_ascii=False)
+    )
+    return source_id, incident, created_at
 
 
 def seed_incidents(csv_path: Path = DEFAULT_CSV, db_path: Path = DEFAULT_DB) -> tuple[int, int, list[tuple[int, list[str]]]]:
@@ -94,14 +106,22 @@ def seed_incidents(csv_path: Path = DEFAULT_CSV, db_path: Path = DEFAULT_DB) -> 
     rows, duplicate_ids = _read_rows(Path(csv_path))
     invalid: list[tuple[int, list[str]]] = []
     to_insert: list[tuple[str, IncidentCreate, datetime]] = []
+    fallback_ids: set[str] = set()
 
     for row_number, row in enumerate(rows, start=2):
-        issues = validate_incident_csv_row(row, duplicate_ids)
+        issues = validate_incident_csv_row(row, duplicate_ids, allow_missing_ticket_id=True)
         if issues:
             invalid.append((row_number, issues))
             continue
         try:
-            to_insert.append(transform_row(row))
+            transformed = transform_row(row)
+            source_id = transformed[0]
+            if source_id.startswith("fallback:"):
+                if source_id in fallback_ids:
+                    invalid.append((row_number, ["duplicate_title_created_at"]))
+                    continue
+                fallback_ids.add(source_id)
+            to_insert.append(transformed)
         except (ValueError, TypeError) as error:
             invalid.append((row_number, [str(error)]))
 

@@ -21,7 +21,9 @@
 
 - `services/api/incident_models.py` define `IncidentCreate` con los campos obligatorios y enumeraciones del briefing, y `Incident` añade UUID y timestamps UTC autogenerados.
 - `packages/shared/incident_csv.py` centraliza la validación de filas del CSV; el analizador existente y `scripts/seed_incidents.py` importan la misma función.
-- `scripts/seed_incidents.py` transforma el histórico, inserta filas válidas en TinyDB e impide duplicados por `ticket_id`. La verificación del fixture produjo 96 válidas, 4 inválidas y los conteos transformados esperados; una segunda ejecución insertó 0.
+- `scripts/seed_incidents.py` transforma el histórico, inserta filas válidas en TinyDB e impide duplicados por `ticket_id`; cuando falta ese valor, usa `title + created_at` como clave. Los duplicados de fallback dentro del CSV se descartan. La validación compartida permite esta ausencia solo a petición del seed, por lo que el analizador conserva el requisito de `ticket_id`.
+- `services/api/tests/test_seed_incidents.py` verifica mapeos y fechas, idempotencia por ambas claves y conteos esperados del CSV (96 válidas, 4 inválidas) en una base temporal.
+- El startup local de FastAPI carga automáticamente el CSV histórico de incidencias mediante el seed idempotente; se puede activar explícitamente para bases personalizadas con `create_app(..., seed_incidents_on_startup=True)`. El resumen y las filas rechazadas se registran sin volcar contenido de los tickets.
 - El seed usa `data/runtime/suppliers.json` por defecto para compartir la base local existente, y acepta `--db` para pruebas aisladas.
 - Para ejecutar pytest en este entorno se añadió el root del monorepo a `sys.path` en `services/api/tests/conftest.py`.
 - `services/api/incident_routes.py` implementa creación, consulta, filtros, transiciones de estado y métricas; `IncidentStore` se inicializa sobre la base TinyDB de la aplicación.

@@ -39,7 +39,12 @@ TICKET_ID_PATTERN = re.compile(r"^NXV-\d{6}$")
 AGENT_ID_PATTERN = re.compile(r"^AGT-\d{2}$")
 
 
-def validate_incident_csv_row(row: dict[str, str | list[str] | None], duplicate_ids: set[str]) -> list[str]:
+def validate_incident_csv_row(
+    row: dict[str, str | list[str] | None],
+    duplicate_ids: set[str],
+    *,
+    allow_missing_ticket_id: bool = False,
+) -> list[str]:
     """Return all analyzer validation issue codes found on one CSV row."""
     issues: list[str] = []
     if None in row:
@@ -51,7 +56,8 @@ def validate_incident_csv_row(row: dict[str, str | list[str] | None], duplicate_
 
     ticket_id = value("ticket_id")
     if not ticket_id:
-        issues.append("ticket_id_missing")
+        if not allow_missing_ticket_id:
+            issues.append("ticket_id_missing")
     elif not TICKET_ID_PATTERN.fullmatch(ticket_id):
         issues.append("ticket_id_invalid")
     elif ticket_id in duplicate_ids:

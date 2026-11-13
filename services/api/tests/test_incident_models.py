@@ -79,3 +79,6 @@ def test_shared_csv_validation_rejects_invalid_and_duplicate_rows():
     assert validate_incident_csv_row(row, set()) == []
     assert validate_incident_csv_row(row, {"NXV-000001"}) == ["ticket_id_duplicate"]
     assert "category_invalid" in validate_incident_csv_row({**row, "category": "UNKNOWN"}, set())
+    without_ticket_id = {key: value for key, value in row.items() if key != "ticket_id"}
+    assert "ticket_id_missing" in validate_incident_csv_row(without_ticket_id, set())
+    assert validate_incident_csv_row(without_ticket_id, set(), allow_missing_ticket_id=True) == []

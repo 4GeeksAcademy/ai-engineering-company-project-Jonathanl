@@ -2,6 +2,7 @@
 
 import csv
 import io
+import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 from threading import Lock
@@ -18,6 +19,7 @@ from services.api.incident_store import IncidentStore
 from services.api.incident_routes import router as incident_router
 from services.api.profiles import router as profiles_router
 from services.api.security import get_current_user
+from scripts.seed_incidents import seed_incidents as seed_historical_incidents
 from services.api.settings import load_settings
 from services.api.supplier_seed import SUPPLIERS_SEED
 from services.api.supplier_store import SupplierStore
@@ -28,14 +30,31 @@ from services.api.users import router as users_router
 
 ROOT = Path(__file__).resolve().parents[2]
 MAX_REQUEST_SIZE = 5 * 1024 * 1024
+logger = logging.getLogger(__name__)
 
 
-def create_app(supplier_db_path: Path | None = None):
+def create_app(
+    supplier_db_path: Path | None = None,
+    *,
+    seed_incidents_on_startup: bool | None = None,
+):
     db_path = supplier_db_path or ROOT / "data" / "runtime" / "suppliers.json"
+    should_seed_incidents = supplier_db_path is None if seed_incidents_on_startup is None else seed_incidents_on_startup
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         settings = load_settings()
+        if should_seed_incidents:
+            inserted, valid, invalid = seed_historical_incidents(db_path=db_path)
+            logger.info(
+                "Historical incidents seed: %s valid, %s inserted, %s invalid.",
+                valid,
+                inserted,
+                len(invalid),
+            )
+            for row_number, reasons in invalid:
+                logger.warning("Historical incidents CSV row %s discarded: %s", row_number, ", ".join(reasons))
+
         database = CompanyDatabase(db_path)
         try:
             supplier_store = SupplierStore(database)
