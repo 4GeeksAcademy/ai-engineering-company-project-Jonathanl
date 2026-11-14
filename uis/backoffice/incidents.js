@@ -20,6 +20,22 @@ const message = (text, error = false) => {
   byId("message").classList.toggle("error", error);
 };
 
+function userError(text) {
+  return Object.assign(new Error(text), { safeForDisplay: true });
+}
+
+async function responseJson(response, fallback) {
+  let result = null;
+  try {
+    result = await response.json();
+  } catch {
+    // Error responses can be empty or non-JSON (for example, proxy HTML).
+  }
+  if (!response.ok) throw userError(fallback);
+  if (result === null) throw userError("El servidor devolvió una respuesta no válida. Inténtalo de nuevo.");
+  return result;
+}
+
 function tableRows(id, entries, total) {
   const body = byId(id);
   body.replaceChildren();
@@ -36,6 +52,17 @@ function tableRows(id, entries, total) {
 }
 
 function showResults(result) {
+  const count = (value) => Number.isInteger(value) && value >= 0;
+  const isRecord = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
+  const isCountRecord = (value) => isRecord(value) && Object.values(value).every(count);
+  if (!isRecord(result) || ![result.total, result.valid, result.invalid].every(count) ||
+      !isRecord(result.satisfaction) ||
+      !(result.satisfaction.average === null || Number.isFinite(result.satisfaction.average)) ||
+      ![result.satisfaction.scored, result.satisfaction.closed].every(count) ||
+      !isCountRecord(result.satisfaction.distribution) || !isCountRecord(result.categories) ||
+      !isCountRecord(result.statuses) || !isCountRecord(result.invalid_reasons)) {
+    throw userError("El servicio devolvió un análisis no válido. Vuelve a cargar el CSV e inténtalo de nuevo.");
+  }
   for (const key of ["total", "valid", "invalid"]) byId(key).textContent = result[key];
   byId("average").textContent = result.satisfaction.average === null ? "N/A" : `${result.satisfaction.average.toFixed(2)} / 5`;
   tableRows("categories", ["TECHNICAL", "BILLING", "ACCESS", "HR_QUERY", "COMPLAINT"].map((key) => [key, result.categories[key]]), result.valid);
@@ -71,13 +98,15 @@ byId("upload-form").addEventListener("submit", async (event) => {
   form.append("file", file);
   try {
     const response = await fetch("/api/incidents/analyze", { method: "POST", body: form, headers: window.incidentAuthHeaders ? window.incidentAuthHeaders() : {} });
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.error || "No se pudo analizar el archivo.");
+    const result = await responseJson(response, "No se pudo analizar el archivo. Revisa el CSV e inténtalo de nuevo.");
     showResults(result);
     byId("download").disabled = false;
     message(result.invalid ? `Análisis completado: ${result.invalid} registros inválidos.` : "Análisis completado.");
   } catch (error) {
-    message(error.message || "No se pudo conectar con la API.", true);
+    const detail = error instanceof TypeError
+      ? "No se pudo conectar con el servicio. Comprueba tu conexión."
+      : error && error.safeForDisplay === true ? error.message : "No se pudo analizar el archivo.";
+    message(`${detail} Puedes volver a intentarlo.`, true);
   } finally {
     byId("analyze").disabled = false;
     byId("file").disabled = false;
@@ -90,9 +119,9 @@ byId("download").addEventListener("click", async () => {
   try {
     const response = await fetch("/api/incidents/results/export", { headers: window.incidentAuthHeaders ? window.incidentAuthHeaders() : {} });
     if (!response.ok) {
-      const result = await response.json();
-      throw new Error(result.error || "No se pudo descargar el CSV.");
+      throw userError("No se pudo descargar el CSV. Vuelve a analizar las incidencias e inténtalo de nuevo.");
     }
+    message("Preparando descarga…");
     const url = URL.createObjectURL(await response.blob());
     const link = document.createElement("a");
     link.href = url;
@@ -103,7 +132,10 @@ byId("download").addEventListener("click", async () => {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
     message("Resultados descargados.");
   } catch (error) {
-    message(error.message || "No se pudo descargar el CSV.", true);
+    const detail = error instanceof TypeError
+      ? "No se pudo conectar con el servicio. Comprueba tu conexión."
+      : error && error.safeForDisplay === true ? error.message : "No se pudo descargar el CSV.";
+    message(`${detail} Puedes volver a intentarlo.`, true);
   } finally {
     byId("download").disabled = false;
   }

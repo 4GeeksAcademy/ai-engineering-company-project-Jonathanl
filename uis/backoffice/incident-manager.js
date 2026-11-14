@@ -59,21 +59,61 @@
     return "No se pudo completar la solicitud. Revisa los datos e inténtalo de nuevo.";
   }
 
+  function isRecord(value) {
+    return value !== null && typeof value === "object" && !Array.isArray(value);
+  }
+
+  function isIncident(value) {
+    return isRecord(value) && typeof value.id === "string" && typeof value.title === "string" &&
+      typeof value.description === "string" && Object.prototype.hasOwnProperty.call(labels.category, value.category) &&
+      Object.prototype.hasOwnProperty.call(statusTransitions, value.status) &&
+      Object.prototype.hasOwnProperty.call(labels.origin, value.origin) &&
+      Object.prototype.hasOwnProperty.call(labels.branch, value.branch) &&
+      typeof value.created_at === "string" && !Number.isNaN(Date.parse(value.created_at)) &&
+      typeof value.updated_at === "string" && !Number.isNaN(Date.parse(value.updated_at));
+  }
+
+  function isSummary(value) {
+    return isRecord(value) && Number.isInteger(value.total) && value.total >= 0 &&
+      [value.by_status, value.by_category, value.by_origin, value.by_branch].every(isRecord) &&
+      [...Object.values(value.by_status), ...Object.values(value.by_category),
+        ...Object.values(value.by_origin), ...Object.values(value.by_branch)]
+        .every((count) => Number.isInteger(count) && count >= 0);
+  }
+
+  function changeOptions(status) {
+    return statusTransitions[status] || [];
+  }
+
+  function userError(message, details = {}) {
+    return Object.assign(new Error(message), { ...details, safeForDisplay: true });
+  }
+
+  function displayError(error, fallback) {
+    return error?.safeForDisplay === true ? error.message : fallback;
+  }
+
   async function requestJson(url, options = {}) {
     const headers = new Headers(options.headers || {});
     headers.set("Accept", "application/json");
     if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
-    const response = await fetch(url, { ...options, headers });
+    let response;
+    try {
+      response = await fetch(url, { ...options, headers });
+    } catch {
+      throw userError("No se pudo conectar con el servicio. Comprueba tu conexión e inténtalo de nuevo.", { status: 0 });
+    }
     let data;
     try {
       data = await response.json();
     } catch {
       data = null;
     }
-    if (!response.ok) throw Object.assign(new Error(friendlyApiError(response.status, data)), {
-      status: response.status,
-      field: data?.error?.field,
-    });
+    if (!response.ok) {
+      const message = friendlyApiError(response.status, data);
+      throw userError(message, { status: response.status, field: data?.error?.field });
+    }
+    if (data === null) throw userError("El servicio devolvió una respuesta no válida. Inténtalo de nuevo.");
     return data;
   }
 
@@ -153,13 +193,13 @@
       currentOption.value = incident.status;
       currentOption.textContent = labels.status[incident.status] || incident.status;
       select.append(currentOption);
-      for (const next of statusTransitions[incident.status]) {
+      for (const next of changeOptions(incident.status)) {
         const option = document.createElement("option");
         option.value = next;
         option.textContent = labels.status[next];
         select.append(option);
       }
-      select.disabled = !statusTransitions[incident.status].length;
+      select.disabled = !changeOptions(incident.status).length;
       select.addEventListener("change", () => changeStatus(incident, select));
       statusCell.append(select);
       row.append(statusCell);
@@ -178,13 +218,17 @@
       if (byId(controlId).value) params.set(queryName, byId(controlId).value);
     }
     try {
-      incidents = await requestJson(`/api/incidents${params.size ? `?${params}` : ""}`);
+      const result = await requestJson(`/api/incidents${params.size ? `?${params}` : ""}`);
+      if (!Array.isArray(result) || !result.every(isIncident)) {
+        throw userError("El servicio devolvió un listado no válido. Actualiza las incidencias e inténtalo de nuevo.");
+      }
+      incidents = result;
       renderIncidents();
       setMessage("list-message", incidents.length ? `${incidents.length} incidencias encontradas.` : "No hay incidencias para estos filtros.");
     } catch (error) {
       incidents = [];
       renderIncidents();
-      setMessage("list-message", error.message || "No se pudo cargar el listado.", true);
+      setMessage("list-message", `${displayError(error, "No se pudo cargar el listado.")} Vuelve a intentarlo con Actualizar.`, true);
     } finally {
       listBusy = false;
       byId("refresh-incidents").disabled = false;
@@ -196,18 +240,23 @@
     const previousStatus = incident.status;
     const nextStatus = select.value;
     select.disabled = true;
+    select.setAttribute("aria-busy", "true");
+    setMessage("list-message", "Actualizando el estado…");
     try {
-      await requestJson(`/api/incidents/${encodeURIComponent(incident.id)}/status`, {
+      const updated = await requestJson(`/api/incidents/${encodeURIComponent(incident.id)}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: nextStatus }),
       });
+      if (!isIncident(updated)) throw userError("El servicio devolvió una incidencia no válida. Actualiza el listado e inténtalo de nuevo.");
       setMessage("list-message", `Estado actualizado a «${labels.status[nextStatus]}».`);
       await Promise.all([loadIncidents(), loadSummary()]);
     } catch (error) {
       select.value = previousStatus;
-      select.disabled = !statusTransitions[previousStatus].length;
-      setMessage("list-message", error.message || "No se pudo actualizar el estado.", true);
+      setMessage("list-message", `${displayError(error, "No se pudo actualizar el estado.")} Vuelve a intentarlo.`, true);
+    } finally {
+      select.removeAttribute("aria-busy");
+      select.disabled = !changeOptions(previousStatus).length;
     }
   }
 
@@ -254,12 +303,14 @@
     byId("summary-message").setAttribute("aria-busy", "true");
     setMessage("summary-message", "Cargando métricas…");
     try {
-      renderSummary(await requestJson("/api/incidents/summary"));
+      const summary = await requestJson("/api/incidents/summary");
+      if (!isSummary(summary)) throw userError("El servicio devolvió métricas no válidas. Actualiza el resumen e inténtalo de nuevo.");
+      renderSummary(summary);
       setMessage("summary-message", "Resumen actualizado.");
     } catch (error) {
       byId("summary-total").hidden = true;
       byId("summary-breakdowns").replaceChildren();
-      setMessage("summary-message", error.message || "No se pudieron cargar las métricas.", true);
+      setMessage("summary-message", `${displayError(error, "No se pudieron cargar las métricas.")} Vuelve a intentarlo con Actualizar.`, true);
     } finally {
       summaryBusy = false;
       byId("refresh-summary").disabled = false;
@@ -280,15 +331,22 @@
         headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
         body,
       });
-      const result = await response.json();
-      if (!response.ok || !result.access_token) throw new Error("No se pudo iniciar sesión. Comprueba el email y la contraseña.");
+      let result = null;
+      try {
+        result = await response.json();
+      } catch {
+        // Treat empty or non-JSON responses like an unsuccessful login.
+      }
+      if (!response.ok || typeof result?.access_token !== "string" || !result.access_token) {
+        throw new Error("No se pudo iniciar sesión. Comprueba el email y la contraseña.");
+      }
       accessToken = result.access_token;
       byId("session-message").textContent = "Sesión autenticada.";
       byId("login-form").reset();
       setMessage("login-message", "");
       showManager(true);
     } catch (error) {
-      setMessage("login-message", error.message || "No se pudo conectar con el servicio.", true);
+      setMessage("login-message", "No se pudo iniciar sesión. Comprueba tus datos y que el servicio esté disponible; inténtalo de nuevo.", true);
     } finally {
       button.disabled = false;
     }
@@ -327,9 +385,10 @@
       setMessage("form-message", "Incidencia registrada correctamente.");
       await Promise.all([loadIncidents(), loadSummary()]);
     } catch (error) {
-      const field = ["title", "description", "category", "status", "origin", "branch"].includes(error.field) ? error.field : null;
-      if (field) fieldError(field, error.message);
-      setMessage("form-message", error.message || "No se pudo registrar la incidencia.", true);
+      const field = error?.safeForDisplay === true && ["title", "description", "category", "status", "origin", "branch"].includes(error.field) ? error.field : null;
+      const detail = displayError(error, "No se pudo registrar la incidencia.");
+      if (field && error?.safeForDisplay === true) fieldError(field, detail);
+      setMessage("form-message", `${detail} Vuelve a intentarlo.`, true);
     } finally {
       button.disabled = false;
       form.removeAttribute("aria-busy");

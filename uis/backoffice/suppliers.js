@@ -27,15 +27,42 @@ function setCreateMessage(text, error = false) {
   message.classList.toggle("error", error);
 }
 
+function userError(text) {
+  return Object.assign(new Error(text), { safeForDisplay: true });
+}
+
 async function responseJson(response) {
-  const result = await response.json();
-  if (!response.ok) {
-    const detail = Array.isArray(result.detail)
-      ? result.detail.map((item) => item.msg).join(" ")
-      : result.detail || result.error;
-    throw new Error(detail || "No se pudo completar la solicitud.");
+  let result = null;
+  try {
+    result = await response.json();
+  } catch {
+    // Proxies and server failures may return HTML or an empty body.
   }
+  if (!response.ok) {
+    const statusMessages = {
+      401: "Tu sesión ha caducado. Inicia sesión de nuevo.",
+      403: "No tienes permiso para realizar esta acción.",
+      404: "El proveedor ya no está disponible. Actualiza el directorio.",
+      409: "El proveedor ya existe o tiene un conflicto con los datos actuales.",
+      422: "Revisa los datos del proveedor e inténtalo de nuevo.",
+    };
+    throw userError(statusMessages[response.status] || "No se pudo completar la solicitud. Inténtalo de nuevo.");
+  }
+  if (result === null) throw userError("El servidor devolvió una respuesta no válida. Inténtalo de nuevo.");
   return result;
+}
+
+function isSupplier(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value) &&
+    typeof value.id === "string" && typeof value.name === "string" &&
+    typeof value.country === "string" && Array.isArray(value.categories) &&
+    value.categories.every((category) => typeof category === "string") &&
+    typeof value.monthly_rate === "number" && typeof value.currency === "string" &&
+    typeof value.updated_at === "string" && !Number.isNaN(Date.parse(value.updated_at)) &&
+    (value.status === "active" || value.status === "suspended") &&
+    (value.contract_renewal_date === null || (typeof value.contract_renewal_date === "string" && !Number.isNaN(Date.parse(value.contract_renewal_date)))) &&
+    (value.contact_email === null || typeof value.contact_email === "string") &&
+    (value.notes === null || typeof value.notes === "string");
 }
 
 function formatDate(dateText) {
@@ -183,11 +210,21 @@ async function loadSuppliers() {
   if (byId("category-filter").value) params.set("category", byId("category-filter").value);
   const query = params.size ? `?${params}` : "";
   try {
-    suppliers = await responseJson(await fetch(`/api/suppliers${query}`, { headers: { Accept: "application/json" } }));
+    const result = await responseJson(await fetch(`/api/suppliers${query}`, { headers: { Accept: "application/json" } }));
+    if (!Array.isArray(result) || !result.every(isSupplier)) {
+      throw userError("El servicio devolvió un directorio no válido. Vuelve a actualizarlo.");
+    }
+    suppliers = result;
     renderSuppliers();
     setMessage(suppliers.length ? "Directorio actualizado." : "No hay proveedores para estos filtros.");
   } catch (error) {
-    setMessage(error.message || "No se pudo cargar el directorio.", true);
+    suppliers = [];
+    byId("supplier-rows").replaceChildren();
+    byId("supplier-count").textContent = "(0)";
+    const detail = error instanceof TypeError
+      ? "No se pudo completar la solicitud. Comprueba tu conexión y vuelve a intentarlo."
+      : error && error.safeForDisplay === true ? error.message : "No se pudo cargar el directorio.";
+    setMessage(`${detail} Puedes volver a intentarlo con Actualizar.`, true);
   } finally {
     busy = false;
     byId("refresh").disabled = false;
@@ -204,34 +241,48 @@ async function updateRate(supplier, input, button) {
     return;
   }
   button.disabled = true;
+  setMessage("Actualizando la tarifa…");
   try {
     const updated = await responseJson(await fetch(`/api/suppliers/${supplier.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
       body: JSON.stringify({ monthly_rate: monthlyRate }),
     }));
+    if (!isSupplier(updated)) throw userError("El servicio devolvió datos de proveedor no válidos. Vuelve a intentarlo.");
     suppliers = suppliers.map((item) => item.id === updated.id ? updated : item);
     renderSuppliers();
     setMessage(`Tarifa de ${updated.name} actualizada. Timestamp: ${formatTimestamp(updated.updated_at)}.`);
   } catch (error) {
-    setMessage(error.message || "No se pudo actualizar la tarifa.", true);
+    const detail = error instanceof TypeError
+      ? "No se pudo completar la solicitud. Comprueba tu conexión y vuelve a intentarlo."
+      : error && error.safeForDisplay === true ? error.message : "No se pudo actualizar la tarifa.";
+    setMessage(`${detail} Puedes volver a intentarlo.`, true);
+    renderSuppliers();
+  } finally {
     button.disabled = false;
   }
 }
 
 async function updateStatus(supplier, status, button) {
   button.disabled = true;
+  setMessage("Actualizando el estado del proveedor…");
   try {
     const updated = await responseJson(await fetch(`/api/suppliers/${supplier.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
       body: JSON.stringify({ status }),
     }));
+    if (!isSupplier(updated)) throw userError("El servicio devolvió datos de proveedor no válidos. Vuelve a intentarlo.");
     suppliers = suppliers.map((item) => item.id === updated.id ? updated : item);
     renderSuppliers();
     setMessage(`${updated.name}: estado ${updated.status === "active" ? "activo" : "suspendido"}.`);
   } catch (error) {
-    setMessage(error.message || "No se pudo cambiar el estado.", true);
+    const detail = error instanceof TypeError
+      ? "No se pudo completar la solicitud. Comprueba tu conexión y vuelve a intentarlo."
+      : error && error.safeForDisplay === true ? error.message : "No se pudo cambiar el estado.";
+    setMessage(`${detail} Puedes volver a intentarlo.`, true);
+    renderSuppliers();
+  } finally {
     button.disabled = false;
   }
 }
@@ -282,12 +333,16 @@ byId("create-form").addEventListener("submit", async (event) => {
       headers: { "Content-Type": "application/json", Accept: "application/json" },
       body: JSON.stringify(payload),
     }));
+    if (!isSupplier(created)) throw userError("El servicio devolvió datos de proveedor no válidos. Revisa el directorio e inténtalo de nuevo.");
     form.reset();
     byId("currency").value = "";
     setCreateMessage(`${created.name} quedó registrado.`);
     await loadSuppliers();
   } catch (error) {
-    setCreateMessage(error.message || "No se pudo registrar el proveedor.", true);
+    const detail = error instanceof TypeError
+      ? "No se pudo completar la solicitud. Comprueba tu conexión y vuelve a intentarlo."
+      : error && error.safeForDisplay === true ? error.message : "No se pudo registrar el proveedor.";
+    setCreateMessage(`${detail} Revisa los datos e inténtalo de nuevo.`, true);
   } finally {
     byId("create-button").disabled = false;
     form.removeAttribute("aria-busy");

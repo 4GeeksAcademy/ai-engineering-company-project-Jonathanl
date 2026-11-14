@@ -27,6 +27,14 @@ from services.api.incident_store import IncidentStore  # noqa: E402
 DEFAULT_CSV = ROOT / "scripts" / "incidents-nexova.csv"
 DEFAULT_DB = ROOT / "data" / "runtime" / "suppliers.json"
 
+
+class CsvInputError(Exception):
+    """Raised when the source CSV cannot be read or parsed."""
+
+
+class DatabaseSeedError(Exception):
+    """Raised when the local database cannot be updated."""
+
 STATUS_MAP = {"OPEN": "open", "CLOSED": "resolved", "DISCARDED": "discarded"}
 CATEGORY_MAP = {
     "TECHNICAL": "technical_failure",
@@ -38,21 +46,27 @@ CATEGORY_MAP = {
 
 
 def _read_rows(csv_path: Path) -> tuple[list[dict[str, str | list[str] | None]], set[str]]:
-    with csv_path.open("r", encoding="utf-8-sig", newline="") as csv_file:
-        reader = csv.DictReader(csv_file, strict=True)
-        if reader.fieldnames is None:
-            raise ValueError("El CSV esta vacio o no tiene cabecera.")
-        if len(set(reader.fieldnames)) != len(reader.fieldnames):
-            raise ValueError("La cabecera contiene columnas duplicadas.")
-        # ticket_id is optional for the seed: rows without it use title+created_at.
-        missing = [
-            column
-            for column in CSV_REQUIRED_COLUMNS
-            if column != "ticket_id" and column not in reader.fieldnames
-        ]
-        if missing:
-            raise ValueError("Faltan columnas requeridas: " + ", ".join(missing))
-        rows = list(reader)
+    try:
+        with csv_path.open("r", encoding="utf-8-sig", newline="") as csv_file:
+            reader = csv.DictReader(csv_file, strict=True)
+            if reader.fieldnames is None:
+                raise ValueError("El CSV esta vacio o no tiene cabecera.")
+            if len(set(reader.fieldnames)) != len(reader.fieldnames):
+                raise ValueError("La cabecera contiene columnas duplicadas.")
+            # ticket_id is optional for the seed: rows without it use title+created_at.
+            missing = [
+                column
+                for column in CSV_REQUIRED_COLUMNS
+                if column != "ticket_id" and column not in reader.fieldnames
+            ]
+            if missing:
+                raise ValueError("Faltan columnas requeridas: " + ", ".join(missing))
+            rows = list(reader)
+    except (OSError, UnicodeError, csv.Error) as error:
+        raise CsvInputError("No se pudo leer o parsear el archivo CSV.") from error
+
+    if not rows:
+        raise ValueError("El CSV no contiene registros.")
 
     id_counts = Counter(
         row.get("ticket_id", "").strip()
@@ -81,8 +95,8 @@ def transform_row(row: dict[str, str | list[str] | None]) -> tuple[str, Incident
     try:
         status = STATUS_MAP[raw_status.strip()]
         category = CATEGORY_MAP[raw_category.strip()]
-    except KeyError as error:
-        raise ValueError(f"No hay mapeo para {error.args[0]}.") from None
+    except KeyError:
+        raise ValueError("No hay un mapeo válido para el estado o la categoría.") from None
 
     incident = IncidentCreate(
         title=title,
@@ -122,11 +136,12 @@ def seed_incidents(csv_path: Path = DEFAULT_CSV, db_path: Path = DEFAULT_DB) -> 
                     continue
                 fallback_ids.add(source_id)
             to_insert.append(transformed)
-        except (ValueError, TypeError) as error:
-            invalid.append((row_number, [str(error)]))
+        except (ValueError, TypeError):
+            invalid.append((row_number, ["Datos de fila no válidos."]))
 
-    database = CompanyDatabase(Path(db_path))
+    database: CompanyDatabase | None = None
     try:
+        database = CompanyDatabase(Path(db_path))
         store = IncidentStore(database)
         inserted = 0
         for source_id, incident, created_at in to_insert:
@@ -134,8 +149,14 @@ def seed_incidents(csv_path: Path = DEFAULT_CSV, db_path: Path = DEFAULT_DB) -> 
                 continue
             store.create(incident, source_id=source_id, created_at=created_at)
             inserted += 1
+    except Exception as error:
+        raise DatabaseSeedError("No se pudo actualizar la base local.") from error
     finally:
-        database.close()
+        if database is not None:
+            try:
+                database.close()
+            except Exception:
+                raise DatabaseSeedError("No se pudo cerrar la base local.") from error
 
     return inserted, len(to_insert), invalid
 
@@ -148,9 +169,9 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         inserted, valid, invalid = seed_incidents(args.csv_file, args.db)
-    except (OSError, UnicodeError, csv.Error, ValueError) as error:
-        print(f"No se pudo cargar el CSV: {error}", file=sys.stderr)
-        return 2
+    except (CsvInputError, ValueError, DatabaseSeedError):
+        print("Error al cargar incidencias: revisa el CSV y vuelve a intentarlo.", file=sys.stderr)
+        return 1
 
     print(f"Incidencias válidas: {valid}; insertadas en esta ejecución: {inserted}.")
     print(f"Filas inválidas descartadas: {len(invalid)}.")

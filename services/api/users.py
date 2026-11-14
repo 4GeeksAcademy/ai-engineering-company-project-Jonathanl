@@ -17,7 +17,7 @@ def register_user(user_data: UserCreate, users: UserService = Depends(get_user_s
     try:
         user, _ = users.create_user(user_data, hashed_password, role=UserRole.USER)
     except DuplicateEmailError as error:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Ya existe un usuario con ese email.") from error
     return user
 
 
@@ -58,9 +58,9 @@ def update_user(
     try:
         user = users.update_user(user_id, update)
     except DuplicateEmailError as error:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Ya existe un usuario con ese email.") from error
     except LastActiveAdminError as error:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="No se puede retirar el rol del último administrador activo.") from error
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado.")
     return user
@@ -75,6 +75,6 @@ def delete_user(
     try:
         user = users.delete_user(user_id)
     except LastActiveAdminError as error:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="No se puede eliminar el último administrador activo.") from error
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado.")

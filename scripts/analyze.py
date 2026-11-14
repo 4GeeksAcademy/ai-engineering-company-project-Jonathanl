@@ -23,7 +23,6 @@ def print_report(file_path: Path, results: dict[str, object]) -> None:
 
     print("=" * 60)
     print("  NEXOVA — ANÁLISIS DE TICKETS DE SOPORTE")
-    print(f"  Archivo: {file_path.name}")
     print("=" * 60)
     print(f"\nREGISTROS TOTALES .............. {results['total']}")
     print(f"  Válidos ...................... {results['valid']}")
@@ -66,7 +65,7 @@ def export_results(file_path: Path, results: dict[str, object], output_path: Pat
     with output_path.open("w", encoding="utf-8", newline="") as csv_file:
         csv_file.write(render_csv(results))
 
-    print(f"Resultados exportados a {output_path} (origen: {file_path.name}).")
+    print("Resultados exportados correctamente.")
 
 
 def ask_export() -> bool:
@@ -89,17 +88,20 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         results = analyze_csv(args.csv_file)
-    except (OSError, UnicodeError, csv.Error, ValueError) as error:
-        print(f"Error al procesar el CSV: {error}", file=sys.stderr)
-        return 2
+    except (OSError, UnicodeError, csv.Error):
+        print("Error al procesar el CSV: no se pudo leer o decodificar el archivo.", file=sys.stderr)
+        return 1
+    except ValueError:
+        print("Error al procesar el CSV: el archivo no contiene la estructura o los datos requeridos.", file=sys.stderr)
+        return 1
 
     print_report(args.csv_file, results)
     if ask_export():
         try:
             export_results(args.csv_file, results, Path("results.csv"))
-        except OSError as error:
-            print(f"Error al exportar los resultados: {error}", file=sys.stderr)
-            return 2
+        except OSError:
+            print("Error al exportar los resultados: no se pudo escribir el archivo de salida.", file=sys.stderr)
+            return 1
     return 0
 
 

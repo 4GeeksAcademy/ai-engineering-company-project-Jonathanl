@@ -47,7 +47,7 @@ function CandidatesList() {
         const data = await getCandidates();
         if (active) setCandidates(data);
       } catch (cause) {
-        if (active) setError(cause instanceof Error ? cause.message : "No se pudieron cargar las candidaturas.");
+        if (active) setError("No se pudieron cargar las candidaturas. Comprueba la conexión e inténtalo de nuevo.");
       } finally {
         if (active) setLoading(false);
       }

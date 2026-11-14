@@ -156,7 +156,10 @@ def get_incident(incident_id: str, store: IncidentStore = Depends(get_incident_s
         )
     incident = store.get(parsed_id)
     if incident is None:
-        return JSONResponse({"error": "Incidencia no encontrada."}, status_code=404)
+        return JSONResponse(
+            {"error": {"field": "id", "message": "Incidencia no encontrada."}},
+            status_code=404,
+        )
     return incident
 
 
@@ -184,7 +187,10 @@ async def update_incident_status(
 
     incident = store.get(parsed_id)
     if incident is None:
-        return JSONResponse({"error": "Incidencia no encontrada."}, status_code=404)
+        return JSONResponse(
+            {"error": {"field": "id", "message": "Incidencia no encontrada."}},
+            status_code=404,
+        )
     if status_payload.status not in STATUS_TRANSITIONS[incident.status]:
         return JSONResponse(
             {

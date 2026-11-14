@@ -36,7 +36,7 @@ export default function CandidateDetailPage() {
         const data = await getCandidate(id);
         if (active) setCandidate(data);
       } catch (cause) {
-        if (active) setError(cause instanceof Error ? cause.message : "No se pudo cargar la candidatura.");
+        if (active) setError("No se pudo cargar la candidatura. Comprueba la conexión e inténtalo de nuevo.");
       } finally {
         if (active) setLoading(false);
       }
@@ -54,7 +54,7 @@ export default function CandidateDetailPage() {
         const data = await getCandidateNotes(id);
         if (active) setNotes(data);
       } catch (cause) {
-        if (active) setNotesError(cause instanceof Error ? cause.message : "No se pudieron cargar las notas.");
+        if (active) setNotesError("No se pudieron cargar las notas. Comprueba la conexión e inténtalo de nuevo.");
       } finally {
         if (active) setNotesLoading(false);
       }
@@ -74,8 +74,8 @@ export default function CandidateDetailPage() {
       const updated = await updateCandidate(id, { [field]: value });
       setCandidate(updated);
       setUpdateFeedback(field === "status" ? "Estado actualizado." : "Etapa actualizada.");
-    } catch (cause) {
-      setUpdateError(cause instanceof Error ? cause.message : "No se pudo actualizar el proceso.");
+    } catch {
+      setUpdateError("No se pudo actualizar el proceso. Comprueba los datos e inténtalo de nuevo.");
     } finally {
       setUpdatingField("");
     }
@@ -99,8 +99,8 @@ export default function CandidateDetailPage() {
       setNoteContent("");
       setNoteFeedback("Nota añadida.");
       setCandidate((current) => current ? { ...current, notes_count: current.notes_count + 1 } : current);
-    } catch (cause) {
-      setNoteError(cause instanceof Error ? cause.message : "No se pudo añadir la nota.");
+    } catch {
+      setNoteError("No se pudo añadir la nota. Comprueba la conexión e inténtalo de nuevo.");
     } finally {
       setAddingNote(false);
       setNoteSaving(false);
@@ -117,8 +117,8 @@ export default function CandidateDetailPage() {
       setNotes((current) => current.filter((note) => note.id !== noteId));
       setCandidate((current) => current ? { ...current, notes_count: Math.max(0, current.notes_count - 1) } : current);
       setNoteFeedback("Nota eliminada.");
-    } catch (cause) {
-      setNoteError(cause instanceof Error ? cause.message : "No se pudo eliminar la nota.");
+    } catch {
+      setNoteError("No se pudo eliminar la nota. Comprueba la conexión e inténtalo de nuevo.");
     } finally {
       setDeletingNoteId("");
     }
@@ -164,7 +164,7 @@ export default function CandidateDetailPage() {
                 </select>
                 {updatingField && <p className="subtle" role="status">Guardando cambio…</p>}
                 {updateFeedback && <p className="feedback-success" role="status">{updateFeedback}</p>}
-                {updateError && <p className="feedback-error" role="alert">{updateError}</p>}
+                {updateError && <p className="feedback-error" role="alert">{updateError} Vuelve a intentarlo; si el problema continúa, contacta con soporte.</p>}
                 <div style={{ marginTop: 24 }}><div className="field-label">Última actualización</div><div className="field-value">{formatCandidateDate(candidate.updated_at)}</div></div>
               </aside>
             </div>
@@ -176,7 +176,7 @@ export default function CandidateDetailPage() {
                 <button className="primary-button" type="submit" disabled={noteSaving || Boolean(deletingNoteId) || !noteContent.trim()}>{noteSaving ? "Guardando…" : "Añadir nota"}</button>
               </form>
               {noteFeedback && <p className="feedback-success" role="status">{noteFeedback}</p>}
-              {noteError && <p className="feedback-error" role="alert">{noteError}</p>}
+              {noteError && <p className="feedback-error" role="alert">{noteError} Vuelve a intentarlo; si el problema continúa, contacta con soporte.</p>}
               {notesLoading ? <p className="state" role="status"><span className="loading-dot" />Cargando notas…</p> : notesError ? <div className="state error" role="alert"><p>No se pudieron cargar las notas.</p><p>{notesError}</p><button type="button" className="control" onClick={() => setNotesReloadKey((value) => value + 1)}>Volver a intentar</button></div> : notes.length === 0 ? <p className="state">Todavía no hay notas para esta candidatura.</p> : (
                 <ul className="notes-list">{notes.map((note) => <li className="note-item" key={note.id}><div><p className="note-content">{note.content}</p><time className="subtle" dateTime={note.created_at}>{formatCandidateDate(note.created_at)}</time></div><button className="delete-button" type="button" disabled={Boolean(deletingNoteId)} onClick={() => void removeNote(note.id)} aria-label={`Eliminar nota del ${formatCandidateDate(note.created_at)}`}>{deletingNoteId === note.id ? "Eliminando…" : "Eliminar"}</button></li>)}</ul>
               )}
