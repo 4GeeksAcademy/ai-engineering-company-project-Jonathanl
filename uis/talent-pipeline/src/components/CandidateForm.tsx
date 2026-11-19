@@ -6,8 +6,11 @@ import { createCandidate, replaceCandidate } from "@/lib/api";
 import type { Candidate, CandidateCreate } from "@/types/candidate";
 
 type CandidateFormProps = {
-  mode: "create" | "edit";
-  candidate?: Candidate;
+  mode: "create";
+  candidate?: never;
+} | {
+  mode: "edit";
+  candidate: Candidate;
 };
 
 type FormValues = {
@@ -97,9 +100,14 @@ export default function CandidateForm({ mode, candidate }: CandidateFormProps) {
 
     setSubmitting(true);
     try {
-      const saved = mode === "create"
-        ? await createCandidate(payload)
-        : await replaceCandidate(candidate!.id, payload);
+      let saved: Candidate;
+      if (mode === "create") {
+        saved = await createCandidate(payload);
+      } else if (candidate) {
+        saved = await replaceCandidate(candidate.id, payload);
+      } else {
+        throw new Error("No se encontró la candidatura que quieres editar. Vuelve al pipeline e inténtalo de nuevo.");
+      }
       setSuccess(mode === "create" ? "La candidatura se registró correctamente." : "Los datos de la candidatura se actualizaron correctamente.");
       setSavedCandidateId(saved.id);
       if (mode === "edit") {
@@ -108,14 +116,15 @@ export default function CandidateForm({ mode, candidate }: CandidateFormProps) {
       } else {
         setValues(emptyValues);
       }
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "No se pudo guardar la candidatura. Inténtalo de nuevo.");
+    } catch {
+      setError("No se pudo guardar la candidatura. Revisa los datos e inténtalo de nuevo; si el problema continúa, contacta con soporte.");
     } finally {
       setSubmitting(false);
     }
   }
 
   const isCreate = mode === "create";
+  const candidatePath = candidate ? `/candidates/${encodeURIComponent(candidate.id)}` : "/";
 
   return (
     <div className="shell">
@@ -125,7 +134,7 @@ export default function CandidateForm({ mode, candidate }: CandidateFormProps) {
         <div className="user"><span className="avatar" aria-hidden="true">PT</span><span className="user-name">People &amp; Talent</span></div>
       </header>
       <main className="container">
-        <Link className="back" href={isCreate ? "/" : `/candidates/${encodeURIComponent(candidate!.id)}`}>← {isCreate ? "Volver al pipeline" : "Volver a la candidatura"}</Link>
+        <Link className="back" href={isCreate ? "/" : candidatePath}>← {isCreate ? "Volver al pipeline" : "Volver a la candidatura"}</Link>
         <div className="form-heading"><p className="eyebrow">People &amp; Talent / Selección</p><h1>{isCreate ? "Registrar candidatura" : "Editar candidatura"}</h1><p className="lead">{isCreate ? "Añade un nuevo perfil al pipeline de selección de Nexova." : `Actualiza los datos de ${(savedCandidate ?? candidate)?.full_name ?? "la candidatura"}.`}</p></div>
         <form className="panel candidate-form" onSubmit={submit} noValidate>
           <h2 className="section-title">Datos del perfil</h2>
@@ -141,7 +150,7 @@ export default function CandidateForm({ mode, candidate }: CandidateFormProps) {
           <p className="form-required">* Campos obligatorios</p>
           {error && <p className="feedback-error" role="alert">{error}</p>}
           {success && <div className="feedback-success" role="status"><p>{success}</p>{savedCandidateId && <Link className="view-link" href={`/candidates/${encodeURIComponent(savedCandidateId)}`}>Ver candidatura →</Link>}</div>}
-          <div className="form-actions"><Link className="secondary-button" href={isCreate ? "/" : `/candidates/${encodeURIComponent(candidate!.id)}`}>Cancelar</Link><button className="primary-button" type="submit" disabled={submitting}>{submitting ? "Guardando…" : isCreate ? "Registrar candidatura" : "Guardar cambios"}</button></div>
+          <div className="form-actions"><Link className="secondary-button" href={isCreate ? "/" : candidatePath}>Cancelar</Link><button className="primary-button" type="submit" disabled={submitting}>{submitting ? "Guardando…" : isCreate ? "Registrar candidatura" : "Guardar cambios"}</button></div>
         </form>
       </main>
     </div>
