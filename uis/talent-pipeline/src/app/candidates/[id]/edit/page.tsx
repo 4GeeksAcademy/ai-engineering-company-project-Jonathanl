@@ -22,7 +22,7 @@ export default function EditCandidatePage() {
         const result = await getCandidate(id);
         if (active) setCandidate(result);
       } catch (cause) {
-        if (active) setError(cause instanceof Error ? cause.message : "No se pudo cargar la candidatura.");
+        if (active) setError("No se pudo cargar la candidatura. Comprueba la conexión e inténtalo de nuevo.");
       } finally {
         if (active) setLoading(false);
       }
