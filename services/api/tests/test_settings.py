@@ -5,15 +5,24 @@ from services.api import settings
 
 def test_load_settings_reads_dotenv_file(tmp_path, monkeypatch):
     env_file = tmp_path / ".env"
-    env_file.write_text("SECRET_KEY=test-secret\nACCESS_TOKEN_EXPIRE_MINUTES=45\n")
+    env_file.write_text(
+        "SECRET_KEY=test-secret\n"
+        "ACCESS_TOKEN_EXPIRE_MINUTES=45\n"
+        "RESEND_API_KEY=test-resend-key\n"
+        "RESEND_FROM_EMAIL=verified@example.com\n"
+    )
     monkeypatch.setattr(settings, "ENV_FILE", env_file)
     monkeypatch.delenv("SECRET_KEY", raising=False)
     monkeypatch.delenv("ACCESS_TOKEN_EXPIRE_MINUTES", raising=False)
+    monkeypatch.delenv("RESEND_API_KEY", raising=False)
+    monkeypatch.delenv("RESEND_FROM_EMAIL", raising=False)
 
     result = settings.load_settings()
 
     assert result.secret_key == "test-secret"
     assert result.access_token_expire_minutes == 45
+    assert result.resend_api_key == "test-resend-key"
+    assert result.resend_from_email == "verified@example.com"
 
 
 @pytest.mark.parametrize(

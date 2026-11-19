@@ -1,10 +1,10 @@
 import type { Candidate, CandidateCreate, CandidateListResponse, CandidateNote, CandidateNotesResponse, CandidatePatch } from "@/types/candidate";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
-
-if (!API_BASE_URL) {
-  throw new Error("Falta configurar NEXT_PUBLIC_API_URL en .env.local.");
-}
+const configuredApiBaseUrl = process.env.NEXT_PUBLIC_API_URL;
+const API_BASE_URL =
+  configuredApiBaseUrl && configuredApiBaseUrl !== "/nexova-api"
+    ? configuredApiBaseUrl
+    : "https://playground.4geeks.com/tracker/api/v1";
 
 function statusMessage(status: number): string {
   if (status === 401) return "Tu sesión ha caducado. Inicia sesión de nuevo.";
