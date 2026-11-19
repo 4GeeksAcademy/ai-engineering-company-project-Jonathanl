@@ -4,8 +4,9 @@
 
 Este repositorio adapta una plantilla transversal de AI Engineering. Mantén las responsabilidades existentes y lee el README del área antes de añadir código:
 
-- `uis/`: interfaces. Las rutas previstas son `uis/website/` para el sitio público y `uis/backoffice/` para aplicaciones internas separadas del sitio público. Ya hay páginas estáticas y una demo bajo `uis/backoffice/`; la app prevista de website no debe darse por implementada.
-- `services/`: APIs y servicios backend. Existe una API en `services/api/`; `services/README.md` recomienda centralizar el backend y documentar los servicios.
+- `uis/`: interfaces. `uis/website/` es la ubicación prevista para el sitio público; debe atender `/` y alinearse con la marca y el contenido de `BRIEFING.md`. `uis/backoffice/` es para la aplicación interna, con layout propio y separada del sitio público; su vista de entrada debe atender `/`. Ya hay páginas estáticas y una demo bajo `uis/backoffice/`, pero la app pública de website aún no debe darse por implementada.
+- `services/`: APIs y servicios backend. La ruta prevista para APIs es `services/`; existe una API en `services/api/`. Lee `services/README.md` antes de añadir módulos o servicios y documenta cada servicio.
+- Lee `uis/README.md` antes de añadir interfaces. No trates `uis/talent-pipeline/` ni las páginas estáticas existentes como sustituto de `uis/website/`, ni crees un segundo árbol de frontend/API. Estas rutas describen la organización prevista; la tarea de infraestructura de agentes no pide crear o mover aplicaciones.
 - `agents/`: agentes de producto; `skills/` y `.agents/skills/` contienen instrucciones reutilizables según su propósito.
 - `data/`: datos y pipelines; `workflows/`: orquestación; `packages/`, `shared/` y `docs/`: reutilización y documentación transversal.
 

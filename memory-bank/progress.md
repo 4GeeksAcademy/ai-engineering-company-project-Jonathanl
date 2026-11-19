@@ -9,7 +9,7 @@
 - El repositorio contiene una API FastAPI en `services/api/`, interfaces estáticas/backoffice y una aplicación Next.js de pipeline de candidaturas en `uis/talent-pipeline/`.
 - La propuesta de agente de selección está en `company-choice.md`; la skill `.agents/skills/evaluate-candidate-fit/SKILL.md` describe una evaluación ficticia y explicable con revisión humana.
 - `AGENTS.md` define la lectura inicial del banco, las reglas de trabajo, el proceso ordenado antes del commit y los límites que requieren aprobación. `.agents/rules/nexova-development.md` se aplica al repositorio completo.
-- Las ubicaciones futuras de aplicaciones son `uis/website/`, `uis/backoffice/` y `services/`; documentarlas no significa que se estén creando como parte de esta tarea.
+- Las ubicaciones previstas de aplicaciones son `uis/website/` (sitio público), `uis/backoffice/` (aplicación interna separada) y `services/` (APIs/servicios); documentarlas no significa que se estén creando como parte de esta tarea.
 
 ## Siguientes pasos
 
