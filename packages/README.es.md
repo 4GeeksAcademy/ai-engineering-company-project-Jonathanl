@@ -1,5 +1,12 @@
 # Carpeta `packages`
 
+## Validación compartida de CSV en Python
+
+`shared/incident_csv.py` contiene la validación de campos del histórico y los
+valores del CSV, reutilizados tanto por `services/api/incidents.py` (analizador
+existente) como por `scripts/seed_incidents.py`. Así ambos flujos validan los
+mismos registros de origen.
+
 Esta carpeta contiene **paquetes compartidos** del monorepo: librerías internas, utilidades, tipos, componentes comunes, SDKs, clientes y cualquier código reutilizable por varias aplicaciones/agentes/pipelines.
 
 Cada subcarpeta dentro de `packages/` debería representar **un paquete versionable** (por ejemplo `shared-types`, `ui`, `analytics-sdk`) con su README propio.

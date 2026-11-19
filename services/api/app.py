@@ -2,11 +2,13 @@
 
 import csv
 import io
+import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 from threading import Lock
 
 from fastapi import Depends, FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -14,8 +16,11 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from services.api.database import CompanyDatabase
 from services.api.auth import router as auth_router
 from services.api.incidents import CATEGORIES, STATUSES, analyze_stream, render_csv
+from services.api.incident_store import IncidentStore
+from services.api.incident_routes import router as incident_router
 from services.api.profiles import router as profiles_router
 from services.api.security import get_current_user
+from scripts.seed_incidents import seed_incidents as seed_historical_incidents
 from services.api.settings import load_settings
 from services.api.supplier_seed import SUPPLIERS_SEED
 from services.api.supplier_store import SupplierStore
@@ -26,14 +31,31 @@ from services.api.users import router as users_router
 
 ROOT = Path(__file__).resolve().parents[2]
 MAX_REQUEST_SIZE = 5 * 1024 * 1024
+logger = logging.getLogger(__name__)
 
 
-def create_app(supplier_db_path: Path | None = None):
+def create_app(
+    supplier_db_path: Path | None = None,
+    *,
+    seed_incidents_on_startup: bool | None = None,
+):
     db_path = supplier_db_path or ROOT / "data" / "runtime" / "suppliers.json"
+    should_seed_incidents = supplier_db_path is None if seed_incidents_on_startup is None else seed_incidents_on_startup
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         settings = load_settings()
+        if should_seed_incidents:
+            inserted, valid, invalid = seed_historical_incidents(db_path=db_path)
+            logger.info(
+                "Historical incidents seed: %s valid, %s inserted, %s invalid.",
+                valid,
+                inserted,
+                len(invalid),
+            )
+            for row_number, reasons in invalid:
+                logger.warning("Historical incidents CSV row %s discarded: %s", row_number, ", ".join(reasons))
+
         database = CompanyDatabase(db_path)
         try:
             supplier_store = SupplierStore(database)
@@ -41,6 +63,7 @@ def create_app(supplier_db_path: Path | None = None):
             app.state.settings = settings
             app.state.database = database
             app.state.supplier_store = supplier_store
+            app.state.incident_store = IncidentStore(database)
             app.state.user_service = UserService(database)
             yield
         finally:
@@ -63,24 +86,56 @@ def create_app(supplier_db_path: Path | None = None):
 
     @app.exception_handler(StarletteHTTPException)
     async def handle_http_error(request: Request, error: StarletteHTTPException):
-        if error.status_code == 400:
+        if error.status_code == 400 and request.url.path == "/api/incidents/analyze":
             message = "Solicitud multipart incorrecta."
         else:
-            message = str(error.detail)
+            # Only expose details from errors explicitly raised by our API.
+            # Framework/dependency errors may contain implementation details.
+            message = (
+                error.detail
+                if isinstance(error.detail, str) and request.url.path.startswith("/api/")
+                else "No se pudo completar la solicitud."
+            )
         return JSONResponse({"error": message}, status_code=error.status_code, headers=error.headers)
+
+    @app.exception_handler(RequestValidationError)
+    async def handle_request_validation_error(request: Request, error: RequestValidationError):
+        return JSONResponse(
+            {"error": {"field": "request", "message": "La solicitud contiene datos no válidos."}},
+            status_code=422,
+        )
+
+    @app.exception_handler(Exception)
+    async def handle_unexpected_error(request: Request, error: Exception):
+        logger.error(
+            "Unhandled API error for %s %s (%s)",
+            request.method,
+            request.url.path,
+            type(error).__name__,
+        )
+        return JSONResponse(
+            {"error": "Ha ocurrido un error interno. Inténtalo de nuevo más tarde."},
+            status_code=500,
+        )
 
     @app.post("/api/incidents/analyze", dependencies=[Depends(get_current_user)])
     async def analyze(request: Request):
         nonlocal latest
         if request.headers.get("content-type", "").split(";", 1)[0].strip() != "multipart/form-data":
             return JSONResponse({"error": "Envia el CSV como multipart/form-data en el campo file."}, status_code=415)
-        form = await request.form()
+        try:
+            form = await request.form()
+        except (ValueError, OSError):
+            return JSONResponse({"error": "No se pudo leer el formulario. Vuelve a intentarlo."}, status_code=400)
         upload = form.get("file")
         if upload is None or not getattr(upload, "filename", None):
             return JSONResponse({"error": "Falta el archivo CSV en el campo file."}, status_code=400)
         if not upload.filename.lower().endswith(".csv"):
             return JSONResponse({"error": "El archivo debe tener extension .csv."}, status_code=415)
-        content = await upload.read(MAX_REQUEST_SIZE + 1)
+        try:
+            content = await upload.read(MAX_REQUEST_SIZE + 1)
+        except OSError:
+            return JSONResponse({"error": "No se pudo leer el archivo. Vuelve a intentarlo."}, status_code=400)
         if len(content) > MAX_REQUEST_SIZE:
             return JSONResponse({"error": "El archivo supera el limite de 5 MB."}, status_code=413)
         if not content.strip():
@@ -91,8 +146,8 @@ def create_app(supplier_db_path: Path | None = None):
             return JSONResponse({"error": "El CSV debe estar codificado en UTF-8."}, status_code=422)
         except csv.Error:
             return JSONResponse({"error": "Formato CSV incorrecto: revisa comas y comillas."}, status_code=422)
-        except ValueError as error:
-            return JSONResponse({"error": str(error)}, status_code=422)
+        except ValueError:
+            return JSONResponse({"error": "El CSV no tiene el formato o los datos requeridos."}, status_code=422)
 
         scores = results["scores"]
         summary = {
@@ -130,6 +185,7 @@ def create_app(supplier_db_path: Path | None = None):
         return RedirectResponse("/uis/backoffice/", status_code=302)
 
     app.include_router(suppliers_router)
+    app.include_router(incident_router)
     app.include_router(auth_router)
     app.include_router(users_router)
     app.include_router(profiles_router)

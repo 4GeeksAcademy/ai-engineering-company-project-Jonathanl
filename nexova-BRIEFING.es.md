@@ -1,404 +1,145 @@
-# CONTEXTO — Nexova
+# BRIEFING — Gestor de Incidencias Centralizado · Nexova
 
-**Hito 2: Fundamentos de Programación**  
-**Empresa:** Nexova — Consultoría de Recursos Humanos y Adquisición de Talento  
-**Tu Rol:** Ingeniero de IA Junior, Equipo de Nexova AI  
-**Responsable del Proyecto:** Javier Almeida, Gerente de Operaciones
+## Tu empresa
 
----
+**Nexova** es una consultora de recursos humanos y adquisición de talento con **120 empleados**, con sede en Valencia (España) y oficina en Miami (EE.UU.). Opera en tres líneas de negocio: headhunting, externalización de equipos de soporte al cliente para empresas tecnológicas, y formación corporativa.
 
-## Acerca de Nexova
-
-Nexova es una firma de consultoría de recursos humanos y adquisición de talento con sede en Valencia, España, y operaciones de expansión en Miami, Florida. La empresa opera tres líneas de negocio: headhunting ejecutivo, outsourcing de equipos de soporte al cliente para empresas tecnológicas, y formación corporativa. Eres parte del equipo de Ingeniería de IA recientemente formado para modernizar las operaciones de Nexova.
+Como parte del equipo de **AI Engineering de Nexova**, llevas hitos construyendo la plataforma interna. Este proyecto integra en esa plataforma un gestor centralizado de incidencias. En Nexova, las incidencias no son solo fallos de infraestructura: también incluyen quejas de clientes corporativos, errores en procesos de selección y problemas del equipo de soporte externalizado.
 
 ---
 
-## Tu Asignación
+## Quién lo usa y por qué
 
-Javier Almeida, el Gerente de Operaciones, necesita que construyas la lógica central de procesamiento de datos para el sistema de gestión de candidatos de Nexova. Los 40 consultores de selección actualmente procesan todo manualmente — leyendo CVs, puntuando candidatos, haciendo matching con vacantes, y rastreando etapas del proceso. Este hito se enfoca en construir las funciones TypeScript que alimentarán el motor automatizado de scoring de candidatos y matching de vacantes.
+**Sergio Molina (CTO)** necesita visibilidad centralizada de todos los problemas técnicos y operativos que hoy llegan por email, Slack o de viva voz. Sin un registro estructurado, no puede medir ni mejorar los tiempos de resolución.
 
-Esto es programación pura — sin IA, sin prompting. Javier necesita ver que puedes escribir código sólido y bien tipado que maneje lógica de negocio real correctamente.
+**Roberto Díaz (Customer Support Lead)** gestiona 30 agentes que atienden incidencias de los clientes de Nexova. Hoy trabajan con un helpdesk legacy y sin base de conocimiento centralizada. Este gestor será el primer paso hacia un sistema estructurado.
 
----
-
-## Lo que Estás Construyendo
-
-Implementarás un conjunto de utilidades TypeScript para:
-
-1. **Modelar datos de candidatos y vacantes** usando interfaces
-2. **Filtrar y buscar candidatos** por habilidades, experiencia y disponibilidad
-3. **Puntuar candidatos** contra requisitos de vacantes
-4. **Rankear candidatos** para una posición dada
-5. **Generar reportes de selección** con métricas agregadas
-6. **Validar datos** antes de procesarlos
+**Laura Mendoza (CEO)** quiere saber cuántas incidencias críticas hay abiertas en este momento, desde qué oficina vienen y cuánto tiempo llevan sin resolver.
 
 ---
 
-## Entidades de Negocio
+## Oficinas de Nexova
 
-### Candidato (Candidate)
+El campo `branch` debe contener exactamente uno de estos valores:
 
-Un candidato en el sistema de Nexova representa una persona en la base de datos de talento. Cada candidato tiene:
+| Valor en base de datos | Nombre para mostrar             |
+| ---------------------- | ------------------------------- |
+| `central`              | Central — Sede Valencia         |
+| `valencia_operations`  | Valencia — Operaciones          |
+| `miami_office`         | Miami Office                    |
+| `remote`               | Remoto (empleado sin sede fija) |
 
-**Interfaz: `Candidate`**
-
-```typescript
-interface Candidate {
-  id: string; // Identificador único (ej: "C-2024-0451")
-  fullName: string; // Nombre completo
-  email: string; // Email de contacto
-  phone: string; // Teléfono de contacto
-  yearsOfExperience: number; // Años totales de experiencia profesional
-  skills: string[]; // Array de habilidades (ej: ["TypeScript", "React", "Node.js"])
-  englishLevel: EnglishLevel; // Nivel de inglés
-  seniority: SeniorityLevel; // Nivel profesional
-  currentSalary: number; // Salario actual en USD
-  expectedSalary: number; // Salario esperado en USD
-  availability: AvailabilityStatus; // Disponibilidad actual
-  location: string; // Ciudad y país (ej: "Valencia, España")
-  remoteOnly: boolean; // Solo acepta posiciones remotas
-  status: CandidateStatus; // Estado actual en la base de datos
-}
-
-type EnglishLevel = "A1" | "A2" | "B1" | "B2" | "C1" | "C2" | "Native";
-type SeniorityLevel =
-  | "Junior"
-  | "Semi-Senior"
-  | "Senior"
-  | "Lead"
-  | "Executive";
-type AvailabilityStatus = "Immediate" | "2 weeks" | "1 month" | "Not available";
-type CandidateStatus = "Active" | "In process" | "Hired" | "Inactive";
-```
-
-**Reglas de Validación:**
-
-- `yearsOfExperience` debe ser >= 0 y <= 50
-- `currentSalary` y `expectedSalary` deben ser > 0
-- El array `skills` debe contener al menos 1 habilidad
-- `email` debe ser un formato de email válido (verificación básica: contiene @ y .)
-- `phone` no debe estar vacío
+Usa `central` cuando la incidencia no corresponda a una oficina concreta — por ejemplo, reportes `internal` de dirección o quejas `customer` sin sede asociada. `central` es la sede central de Nexova en Valencia; no uses un valor aparte para headquarters.
 
 ---
 
-### Vacante (Vacancy)
+## Categorías de incidencias
 
-Una vacante representa una posición abierta que Nexova está intentando cubrir para un cliente.
+El campo `category` debe contener exactamente uno de estos valores:
 
-**Interfaz: `Vacancy`**
-
-```typescript
-interface Vacancy {
-  id: string; // Identificador único (ej: "V-2024-0892")
-  title: string; // Título del puesto (ej: "Senior Full-Stack Developer")
-  companyName: string; // Nombre de la empresa cliente
-  requiredSkills: string[]; // Habilidades técnicas requeridas
-  preferredSkills: string[]; // Habilidades deseables
-  minYearsExperience: number; // Experiencia mínima requerida
-  maxYearsExperience: number; // Experiencia máxima relevante
-  requiredEnglishLevel: EnglishLevel; // Nivel mínimo de inglés
-  requiredSeniority: SeniorityLevel; // Nivel de seniority requerido
-  salaryRangeMin: number; // Salario mínimo ofrecido (USD)
-  salaryRangeMax: number; // Salario máximo ofrecido (USD)
-  isRemote: boolean; // Posición remota
-  location: string; // Ubicación de oficina si no es remota
-  status: VacancyStatus; // Estado actual de la vacante
-}
-
-type VacancyStatus = "Open" | "In progress" | "Closed" | "On hold";
-```
-
-**Reglas de Validación:**
-
-- `requiredSkills` debe contener al menos 1 habilidad
-- `minYearsExperience` debe ser >= 0
-- `maxYearsExperience` debe ser >= `minYearsExperience`
-- `salaryRangeMax` debe ser >= `salaryRangeMin`
-- Ambos valores de salario deben ser > 0
+| Valor               | Descripción                                                                         |
+| ------------------- | ----------------------------------------------------------------------------------- |
+| `technical_failure` | Fallo de sistema o herramienta tecnológica (ATS, HubSpot, Zendesk, infraestructura) |
+| `process_error`     | Error en un proceso operativo: selección, incorporación, formación, facturación     |
+| `client_complaint`  | Queja o reclamación de un cliente corporativo sobre el servicio prestado            |
+| `candidate_issue`   | Problema reportado por o relacionado con un candidato en proceso de selección       |
+| `staff_issue`       | Incidencia interna de RRHH: ausencia, conflicto, accidente, baja                    |
+| `sla_breach`        | Incumplimiento de SLA comprometido con un cliente                                   |
+| `data_quality`      | Error o inconsistencia en datos de candidatos, clientes o reportes                  |
+| `other`             | Cualquier incidencia que no encaje en las categorías anteriores                     |
 
 ---
 
-### Proceso de Selección (SelectionProcess)
+## Estados y ciclo de vida
 
-Rastrea el progreso de un candidato a través de un proceso de selección de vacante.
+| Valor         | Significado en Nexova                                           |
+| ------------- | --------------------------------------------------------------- |
+| `open`        | Incidencia registrada, sin responsable asignado aún             |
+| `in_progress` | Asignada a un equipo o persona, en gestión activa               |
+| `resolved`    | Resuelta y confirmada por quien la reportó o por el responsable |
+| `discarded`   | Registrada por error, duplicada o fuera de alcance              |
 
-**Interfaz: `SelectionProcess`**
-
-```typescript
-interface SelectionProcess {
-  id: string; // Identificador único (ej: "SP-2024-1523")
-  candidateId: string; // Referencia al candidato
-  vacancyId: string; // Referencia a la vacante
-  stage: ProcessStage; // Etapa actual
-  score: number; // Puntaje de match (0-100)
-  notes: string; // Notas del consultor
-  createdAt: Date; // Fecha de inicio del proceso
-  updatedAt: Date; // Fecha de última actualización
-}
-
-type ProcessStage =
-  | "Screening"
-  | "Interview"
-  | "Technical test"
-  | "Final interview"
-  | "Offer"
-  | "Rejected"
-  | "Hired";
-```
+Transiciones válidas: `open → in_progress`, `open → discarded`, `in_progress → resolved`, `in_progress → discarded`. Los estados `resolved` y `discarded` son finales.
 
 ---
 
-## Funciones Requeridas
+## Orígenes
 
-Implementa estas funciones en los archivos apropiados según la estructura del README.
-
-### 1. Operaciones de Colecciones (`src/utils/collections.ts`)
-
-**`filterCandidatesBySkills(candidates: Candidate[], requiredSkills: string[]): Candidate[]`**
-
-- Retorna candidatos que tienen TODAS las habilidades requeridas
-- El matching de habilidades debe ser case-insensitive
-
-**`filterCandidatesBySeniority(candidates: Candidate[], seniority: SeniorityLevel): Candidate[]`**
-
-- Retorna candidatos con el nivel de seniority especificado
-
-**`filterCandidatesByAvailability(candidates: Candidate[], availability: AvailabilityStatus[]): Candidate[]`**
-
-- Retorna candidatos cuya disponibilidad coincida con cualquiera de los estados proporcionados
-
-**`sortCandidatesBySalary(candidates: Candidate[], order: "asc" | "desc"): Candidate[]`**
-
-- Retorna candidatos ordenados por salario esperado (ascendente o descendente)
-- No debe mutar el array original
-
-**`sortCandidatesByExperience(candidates: Candidate[], order: "asc" | "desc"): Candidate[]`**
-
-- Retorna candidatos ordenados por años de experiencia
-- No debe mutar el array original
+| Valor      | Cuándo usarlo en Nexova                                                         |
+| ---------- | ------------------------------------------------------------------------------- |
+| `customer` | Reportada por un cliente corporativo (empresa que contrata servicios de Nexova) |
+| `branch`   | Reportada por personal de una de las oficinas de Nexova                         |
+| `internal` | Detectada internamente por tecnología, operaciones o dirección                  |
 
 ---
 
-### 2. Operaciones de Búsqueda (`src/utils/search.ts`)
+## Datos históricos — seed desde CSV
 
-**`findCandidateById(candidates: Candidate[], id: string): Candidate | null`**
+El fichero CSV del proyecto **incidents-file-analyzer** (`incidents-nexova.csv` en `content/contexts/incidents-file-analysis/`) contiene incidencias exportadas del helpdesk de soporte al cliente. Todas corresponden a quejas o problemas reportados por clientes corporativos (`origin: "customer"`).
 
-- Realiza búsqueda lineal para encontrar un candidato por ID
-- Retorna el candidato si se encuentra, null en caso contrario
+El esquema del CSV del analizador usa nombres de campo, estados y categorías distintos a los de este gestor. **No insertes filas del CSV directamente.** Reutiliza la lógica de validación compartida del analizador y aplica las transformaciones siguientes antes del insert.
 
-**`findCandidateByEmail(candidates: Candidate[], email: string): Candidate | null`**
+**Campo identificador para idempotencia:** usa `ticket_id` del CSV. Si no existe, usa la combinación `title + created_at`.
 
-- Realiza búsqueda lineal para encontrar un candidato por email
-- La comparación de email debe ser case-insensitive
-- Retorna el candidato si se encuentra, null en caso contrario
+### Mapeo directo de campos
 
-**`binarySearchCandidateBySalary(sortedCandidates: Candidate[], targetSalary: number): number`**
+| Campo CSV     | Campo del modelo | Transformación                                                                 |
+| ------------- | ---------------- | ------------------------------------------------------------------------------ |
+| `ticket_id`   | —                | Solo control de duplicados — no se almacena                                    |
+| `description` | `title`          | Primeros 120 caracteres de `description`, recortados. Descartar si queda vacío |
+| `description` | `description`    | Copiar literalmente                                                            |
+| `date`        | `created_at`     | Parsear `YYYY-MM-DD` como medianoche UTC. `updated_at` igual al insertar       |
+| —             | `origin`         | Siempre `"customer"` en todos los registros del seed                           |
+| —             | `branch`         | Siempre `"central"` (el CSV no tiene campo de oficina)                         |
 
-- Asume que el array ya está ordenado por salario esperado (ascendente)
-- Realiza búsqueda binaria para encontrar el índice de un candidato con el salario objetivo
-- Retorna el índice si se encuentra, -1 en caso contrario
-- Nota: Si múltiples candidatos tienen el mismo salario, retorna cualquier índice válido
+### Mapeo de estados
 
----
+| CSV `status` | Modelo `status` |
+| ------------ | --------------- |
+| `OPEN`       | `open`          |
+| `CLOSED`     | `resolved`      |
+| `DISCARDED`  | `discarded`     |
 
-### 3. Scoring y Matching (`src/utils/transformations.ts`)
+### Mapeo de categorías (Nexova)
 
-**`calculateCandidateScore(candidate: Candidate, vacancy: Vacancy): number`**
+| CSV `category` | Modelo `category`   |
+| -------------- | ------------------- |
+| `TECHNICAL`    | `technical_failure` |
+| `BILLING`      | `process_error`     |
+| `ACCESS`       | `technical_failure` |
+| `HR_QUERY`     | `process_error`     |
+| `COMPLAINT`    | `client_complaint`  |
 
-Calcula un puntaje de match (0-100) entre un candidato y una vacante basado en:
-
-- **Match de habilidades (40 puntos máx):**
-  - +40 puntos si el candidato tiene TODAS las habilidades requeridas
-  - +20 puntos si el candidato tiene al menos 50% de las habilidades requeridas
-  - +10 puntos por cada habilidad preferida que tenga el candidato (máx +20)
-
-- **Match de experiencia (20 puntos máx):**
-  - +20 puntos si la experiencia del candidato está dentro del rango de la vacante
-  - +10 puntos si el candidato está 1-2 años fuera del rango
-  - 0 puntos si está más de 2 años fuera del rango
-
-- **Match de seniority (15 puntos máx):**
-  - +15 puntos por match exacto
-  - +7 puntos si el candidato está un nivel arriba o abajo
-  - 0 puntos en otro caso
-
-- **Match de nivel de inglés (15 puntos máx):**
-  - +15 puntos si el candidato cumple o excede el nivel requerido
-  - 0 puntos en otro caso
-
-- **Match de salario (10 puntos máx):**
-  - +10 puntos si el salario esperado del candidato está dentro del rango de la vacante
-  - +5 puntos si está hasta 20% por encima del máximo
-  - 0 puntos si está más del 20% por encima
-
-**`rankCandidatesForVacancy(candidates: Candidate[], vacancy: Vacancy): Array<{candidate: Candidate, score: number}>`**
-
-- Puntúa todos los candidatos contra la vacante
-- Los retorna ordenados por puntaje (más alto primero)
-- Cada elemento contiene el candidato y su puntaje
-
-**`groupCandidatesBySeniority(candidates: Candidate[]): Record<SeniorityLevel, Candidate[]>`**
-
-- Agrupa candidatos por nivel de seniority
-- Retorna un objeto donde las claves son niveles de seniority y los valores son arrays de candidatos
+Los registros que fallen la validación o no se puedan mapear se descartan y se reportan en consola.
 
 ---
 
-### 4. Agregaciones y Reportes (`src/utils/transformations.ts`)
+## Valores esperados tras el seed
 
-**`countCandidatesByStatus(candidates: Candidate[]): Record<CandidateStatus, number>`**
+Tras cargar el CSV, `/api/incidents/summary` debe devolver totales por `status` y `category` del **modelo** que coincidan con los siguientes conteos transformados. Corresponden a los **96 registros válidos** de `incidents-nexova.csv` del proyecto analizador (excluidas filas inválidas).
 
-- Retorna un conteo de candidatos para cada estado
+**Por `status` del modelo:**
 
-**`calculateAverageSalary(candidates: Candidate[]): number`**
+| Modelo `status` | Conteo |
+| --------------- | ------ |
+| `open`          | 27     |
+| `resolved`      | 56     |
+| `discarded`     | 13     |
 
-- Retorna el salario esperado promedio de todos los candidatos
-- Redondear a 2 decimales
+**Por `category` del modelo:**
 
-**`findTopSkills(candidates: Candidate[], topN: number): Array<{skill: string, count: number}>`**
+| Modelo `category`   | Conteo |
+| ------------------- | ------ |
+| `technical_failure` | 49     |
+| `process_error`     | 35     |
+| `client_complaint`  | 12     |
 
-- Encuentra las N habilidades más comunes entre todos los candidatos
-- Las retorna ordenadas por frecuencia (más alta primero)
-- Cada elemento contiene el nombre de la habilidad y cuántos candidatos la tienen
-
-**`calculateVacancyFillRate(processes: SelectionProcess[]): number`**
-
-- Calcula qué porcentaje de procesos terminaron en "Hired"
-- Retorna un número entre 0 y 100, redondeado a 2 decimales
-
----
-
-### 5. Validaciones (`src/utils/validations.ts`)
-
-**`validateCandidate(candidate: Candidate): { valid: boolean, errors: string[] }`**
-
-- Valida todas las reglas de negocio para un candidato
-- Retorna un objeto con:
-  - `valid`: true si todas las validaciones pasan, false en caso contrario
-  - `errors`: array de mensajes de error (vacío si es válido)
-
-**`validateVacancy(vacancy: Vacancy): { valid: boolean, errors: string[] }`**
-
-- Valida todas las reglas de negocio para una vacante
-- Retorna un objeto con:
-  - `valid`: true si todas las validaciones pasan, false en caso contrario
-  - `errors`: array de mensajes de error (vacío si es válido)
-
-**`isValidEmail(email: string): boolean`**
-
-- Retorna true si el email contiene @ y . en posiciones correctas
-- Validación muy básica (no es de nivel producción)
+Contrasta con la salida del script analizador: el CSV crudo usa `OPEN`/`CLOSED`/`DISCARDED` y códigos como `TECHNICAL`/`BILLING`. Los totales anteriores son los valores **post-transformación** que debe producir tu gestor.
 
 ---
 
-## Datos de Ejemplo
+## Notas de implementación
 
-Usa estos datos para probar tus funciones:
-
-### Candidatos de Ejemplo
-
-```typescript
-const sampleCandidates: Candidate[] = [
-  {
-    id: "C-2024-0451",
-    fullName: "María González",
-    email: "maria.gonzalez@email.com",
-    phone: "+56912345678",
-    yearsOfExperience: 5,
-    skills: ["TypeScript", "React", "Node.js", "PostgreSQL"],
-    englishLevel: "B2",
-    seniority: "Semi-Senior",
-    currentSalary: 3500,
-    expectedSalary: 4200,
-    availability: "1 month",
-    location: "Valencia, España",
-    remoteOnly: false,
-    status: "Active",
-  },
-  {
-    id: "C-2024-0452",
-    fullName: "Juan Pérez",
-    email: "juan.perez@email.com",
-    phone: "+56987654321",
-    yearsOfExperience: 3,
-    skills: ["JavaScript", "React", "CSS", "HTML"],
-    englishLevel: "B1",
-    seniority: "Junior",
-    currentSalary: 2200,
-    expectedSalary: 2800,
-    availability: "Immediate",
-    location: "Miami, Florida, Estados Unidos",
-    remoteOnly: true,
-    status: "Active",
-  },
-  {
-    id: "C-2024-0453",
-    fullName: "Carolina Silva",
-    email: "carolina.silva@email.com",
-    phone: "+56911223344",
-    yearsOfExperience: 8,
-    skills: ["TypeScript", "Node.js", "PostgreSQL", "Docker", "AWS"],
-    englishLevel: "C1",
-    seniority: "Senior",
-    currentSalary: 5500,
-    expectedSalary: 6500,
-    availability: "2 weeks",
-    location: "Valencia, España",
-    remoteOnly: false,
-    status: "Active",
-  },
-];
-```
-
-### Vacante de Ejemplo
-
-```typescript
-const sampleVacancy: Vacancy = {
-  id: "V-2024-0892",
-  title: "Senior Full-Stack Developer",
-  companyName: "TechCorp Solutions",
-  requiredSkills: ["TypeScript", "React", "Node.js"],
-  preferredSkills: ["PostgreSQL", "Docker"],
-  minYearsExperience: 4,
-  maxYearsExperience: 8,
-  requiredEnglishLevel: "B2",
-  requiredSeniority: "Senior",
-  salaryRangeMin: 5000,
-  salaryRangeMax: 7000,
-  isRemote: true,
-  location: "Remote",
-  status: "Open",
-};
-```
-
----
-
-## Criterios de Aceptación
-
-Tu implementación será evaluada en:
-
-1. **Type Safety:** Todas las interfaces definidas correctamente con tipos apropiados
-2. **Corrección de Funciones:** Cada función produce el output esperado para los inputs dados
-3. **Manejo de Casos Límite:** Las funciones manejan arrays vacíos, valores nulos y datos inválidos correctamente
-4. **Lógica de Validación:** Las reglas de negocio se aplican con precisión
-5. **Organización del Código:** Las funciones están en los archivos correctos según responsabilidad
-6. **Convenciones de Nombres:** Variables, funciones y tipos siguen las convenciones de TypeScript
-7. **Sin Mutaciones:** Las funciones de ordenamiento y filtrado no modifican los arrays originales
-8. **Funciones Puras:** Las funciones solo trabajan con parámetros, sin variables globales
-
----
-
-## Lo que Javier Espera
-
-> "Mira, no necesito que esto sea perfecto. Necesito que funcione y sea mantenible. Los consultores van a usar estas funciones a través de una interfaz que construiremos después, pero primero necesito saber que la lógica es sólida. Dame código limpio en el que pueda confiar, y construiremos el resto encima."  
-> — Javier Almeida, Gerente de Operaciones
-
----
-
-## ¿Preguntas?
-
-Si no estás seguro sobre algún requisito, pregunta a tu mentor/a. En un entorno de trabajo real, le escribirías a Javier por Slack .
-
----
-
-_Este es un proyecto real de Nexova. Lo que construyas aquí se convertirá en parte del motor de scoring de candidatos en producción._
+- Nexova opera en dos idiomas: los empleados de Valencia trabajan en español y los de Miami en inglés. Si has implementado soporte bilingüe en hitos anteriores, el formulario y los mensajes de error deben respetarlo.
+- Las incidencias de tipo `sla_breach` son críticas para Roberto y para Laura: aunque la alerta automática no es parte de este proyecto, diseña el modelo pensando en que ese filtro debe ser trivial de añadir.
+- El campo `remote` en `branch` es frecuente en Nexova: muchos empleados trabajan sin sede fija. Asegúrate de que aparece visible en el desplegable y que no genera ambigüedad con `central` (sede) ni con `valencia_operations` (oficina operativa).

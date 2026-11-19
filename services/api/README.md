@@ -1,5 +1,12 @@
 # API de incidencias Nexova
 
+## Modelo de datos de incidencias
+
+`incident_models.py` define los modelos Pydantic `IncidentCreate` y `Incident`.
+El primero valida los campos proporcionados para crear una incidencia; el
+segundo añade UUID y fechas UTC generados automáticamente. Categorías, estados,
+orígenes y sedes están restringidos a los valores de `nexova-BRIEFING.es.md`.
+
 ## Inicio local
 
 Desde la raiz del repositorio:
@@ -32,10 +39,14 @@ a la API, además de la URL del servicio Tracker requerida por esa aplicación.
 
 `uv run seed` carga los 15 proveedores del contexto solo si la tabla esta vacia e
 informa cuantas filas inserto. Repetir el comando no duplica ni sobrescribe
-proveedores. Uvicorn tambien inicializa la base automaticamente si aun esta
-vacia.
+proveedores. Al arrancar con la base local predeterminada, la API también carga
+`scripts/incidents-nexova.csv` mediante el seed idempotente: inserta las filas
+válidas que aún no existan e informa en el log el resumen y las filas
+descartadas. El seed de incidencias puede activarse en una base personalizada
+mediante `create_app(..., seed_incidents_on_startup=True)`.
 
 Backoffice: http://localhost:5050/uis/backoffice/
+Gestor de incidencias: http://localhost:5050/uis/backoffice/ (inicia sesión con una cuenta registrada)
 Directorio de proveedores: http://localhost:5050/uis/backoffice/suppliers.html
 Aplicacion existente: http://localhost:5050/uis/index.html
 
@@ -43,6 +54,29 @@ La API sirve ambas interfaces en el mismo origen. No abras el backoffice con
 `file://` ni con un servidor estatico independiente.
 
 ## Endpoints
+
+### Gestor de incidencias
+
+Las rutas de gestión requieren `Authorization: Bearer <token>`. El CRUD usa la
+tabla `incidents` de la misma base TinyDB que proveedores y usuarios. El
+histórico se carga automáticamente al iniciar la API local con su base
+predeterminada; también puede ejecutarse manualmente con
+`python scripts/seed_incidents.py`. Las validaciones del gestor responden `400` con
+`error.field` y `error.message`; una incidencia inexistente devuelve `404`.
+
+| Metodo | Ruta | Uso |
+| --- | --- | --- |
+| `POST` | `/api/incidents` | Crea una incidencia; respuesta `201` |
+| `GET` | `/api/incidents` | Lista; filtros opcionales `status`, `origin`, `branch`, `category` |
+| `GET` | `/api/incidents/{id}` | Consulta el detalle por UUID |
+| `PATCH` | `/api/incidents/{id}/status` | Cambia solo el estado según las transiciones permitidas |
+| `GET` | `/api/incidents/summary` | Totales por estado, categoría, origen y sede |
+
+Los valores admitidos son los definidos en `nexova-BRIEFING.es.md`. El resumen
+incluye cada valor permitido aunque su conteo sea cero. Los estados `resolved` y
+`discarded` son finales.
+
+### Analizador CSV histórico
 
 `POST /api/incidents/analyze`: multipart/form-data, campo `file`, extension `.csv`,
 UTF-8, cabecera, separador coma, limite de solicitud 5 MB.
@@ -130,6 +164,19 @@ respectivamente. Categorias y estados deben coincidir con
 `updated_at` al crear un proveedor y al actualizar su tarifa. Cambiar estado no
 modifica ese timestamp. Las entradas invalidas reciben `422`; los proveedores
 suspendidos se conservan y no existe endpoint de borrado.
+
+## Interfaz del gestor de incidencias
+
+La página de backoffice ofrece un formulario de alta, listado filtrable por
+estado/origen/sede, actualización de estado y resumen agregado. Inicia sesión
+con una cuenta registrada; el token se conserva solo en memoria durante la
+página y se elimina al cerrar sesión o recargar. La sección de análisis CSV
+existente usa la misma sesión y permanece separada del registro del histórico.
+
+El formulario valida campos requeridos antes de enviar y muestra errores
+asociados al campo. Si el origen es `branch`, resalta la selección de sede.
+El listado muestra estados de carga, error recuperable, vacío o resultados; al
+fallar una actualización de estado, el selector vuelve a su estado anterior.
 
 Para validar el backend:
 
