@@ -25,6 +25,8 @@ Los casos se probarán preferentemente invocando funciones/endpoints con depende
 - `services/api/tests/test_auth_me.py`: devolución de los datos de perfil y error de dominio cuando falta el perfil.
 - `services/api/tests/test_token.py`: creación y verificación de hash, resolución de token y rechazo de firma/claims/expiración inválidos, usuario inexistente o inactivo.
 
+Revisión asistida por IA: al contrastar los casos con las ramas de validación se añadieron dos pruebas que faltaban: el límite de contraseña vacía al crear `UserCreate` y el rechazo controlado de un hash mal formado por `verify_password`. Las dos suites modificadas pasaron (12 pruebas); no se detectó un bug en el código de producción, por lo que no fue necesario cambiarlo.
+
 ### Ejecución y cobertura
 
 Desde la raíz del repositorio, con las dependencias de desarrollo instaladas (`uv sync --extra dev`):

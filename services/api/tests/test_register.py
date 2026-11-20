@@ -4,6 +4,7 @@ from uuid import uuid4
 
 import pytest
 from fastapi import HTTPException
+from pydantic import ValidationError
 
 from services.api.database import CompanyDatabase
 from services.api.user_models import Profile, User, UserCreate, UserRole
@@ -59,6 +60,12 @@ def test_register_duplicate_email_raises_conflict():
         register_user(data, users)
 
     assert error.value.status_code == 409
+
+
+def test_register_rejects_empty_password_at_input_validation():
+    # Password vacío es un límite del modelo de entrada; el endpoint no debe recibirlo.
+    with pytest.raises(ValidationError):
+        UserCreate(email="person@example.com", password="")
 
 
 def test_register_normalizes_email_and_rejects_duplicate_variant(tmp_path, monkeypatch):

@@ -86,3 +86,8 @@ def test_current_user_rejects_wrong_signature_missing_user_and_inactive_user():
         get_current_user(make_request(UserServiceStub(None)), active_token)
     with pytest.raises(HTTPException):
         get_current_user(make_request(UserServiceStub(inactive)), inactive_token)
+
+
+def test_verify_password_returns_false_for_malformed_hash():
+    # Un hash corrupto debe tratarse como credencial inválida, no filtrar excepción.
+    assert not verify_password("any-password", "not-a-valid-bcrypt-hash")
