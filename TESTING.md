@@ -45,9 +45,24 @@ Resultado de las nuevas pruebas unitarias: **16 pasaron**. En el alcance de aute
 
 En este entorno no está instalado `uv`; la batería nueva se verificó con `python -m pytest` usando las dependencias instaladas. En un entorno con `uv`, ejecutar los comandos de arriba tal como están documentados.
 
-## TypeScript — Jest
+## Frontend — Jest (FE-019)
 
-El repositorio contiene utilidades TypeScript en `src/utils/` (validaciones, transformaciones y colecciones), pero no se encontraron helpers de autenticación, configuración de Jest ni dependencias Jest en el proyecto actual. Por tanto, no hay una suite Jest de autenticación identificable para ejecutar en este plan inicial. Si durante la implementación se incorpora lógica TypeScript de autenticación, se añadirá una suite Jest para cada helper con al menos un caso válido y uno de fallo, y se documentará aquí su comando independiente.
+Las pruebas están en `uis/talent-pipeline/__tests__/` y cubren tres utilidades del frontend Next.js:
+
+- `domain.test.ts`: `getInitials` con nombre normal y vacío; `formatCandidateDate` con fecha válida e inválida.
+- `api.test.ts`: `getCandidate` con un payload válido y con una respuesta de forma inválida.
+
+Ejecutar independientemente desde el directorio del frontend:
+
+```bash
+cd uis/talent-pipeline
+npm install
+npm test
+```
+
+`npm test` ejecuta `jest --coverage`. Último resultado: **2 suites y 6 pruebas aprobadas**. La cobertura global de los archivos incluidos (`domain.ts` y `api.ts`) fue 43.02% de statements; `domain.ts` tuvo 100% y `api.ts` 35.52%. La cobertura de `api.ts` es parcial porque se prueban únicamente las rutas de `getCandidate` incluidas en FE-019.
+
+Una prueba con espacios al inicio y final del nombre detectó un defecto: `getInitials` devolvía solo la primera inicial cuando la cadena empezaba con espacios. Se corrigió recortando el nombre antes de dividirlo. La prueba y la suite completa de Jest pasan tras el cambio.
 
 ## Criterio asistido por IA
 
