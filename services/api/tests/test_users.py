@@ -4,7 +4,7 @@ from uuid import uuid4
 
 from services.api.database import CompanyDatabase
 from services.api.user_models import Profile, ProfileUpdate, User, UserCreate, UserPublic, UserRole, UserUpdate
-from services.api.user_service import UserService
+from services.api.user_service import LastActiveAdminError, UserService
 from services.api.user_store import DuplicateEmailError, DuplicateProfileError
 
 
@@ -106,6 +106,48 @@ def test_update_rejects_duplicate_email_and_empty_changes(user_service):
         ProfileUpdate.model_validate({})
 
 
+def test_user_service_handles_missing_records_and_admin_invariants(user_service):
+    service, _ = user_service
+    missing_id = uuid4()
+
+    assert service.get_user_by_id(missing_id) is None
+    assert service.get_user_by_email("missing@example.com") is None
+    assert service.get_profile(missing_id) is None
+    assert service.update_user(missing_id, UserUpdate(email="new@example.com")) is None
+    assert service.update_profile(missing_id, ProfileUpdate(name="Orphan")) is None
+    assert service.delete_user(missing_id) is None
+
+    admin, _ = service.create_user(
+        registration("admin@example.com"), "$2b$12$admin-hash", role=UserRole.ADMIN
+    )
+    with pytest.raises(LastActiveAdminError):
+        service.update_user(admin.id, UserUpdate(role=UserRole.MANAGER))
+    with pytest.raises(LastActiveAdminError):
+        service.delete_user(admin.id)
+
+    # Una cuenta inactiva o un administrador adicional permite retirar el rol.
+    second_admin, _ = service.create_user(
+        registration("second-admin@example.com"), "$2b$12$second-hash", role=UserRole.ADMIN
+    )
+    service.create_user(
+        registration("third-admin@example.com"), "$2b$12$third-hash", role=UserRole.ADMIN
+    )
+    assert service.update_user(admin.id, UserUpdate(role=UserRole.MANAGER)).role == UserRole.MANAGER
+    assert service.delete_user(second_admin.id) == second_admin
+
+
+def test_admin_inactive_can_be_deleted_as_last_active_admin(user_service):
+    service, _ = user_service
+    inactive_admin, _ = service.create_user(
+        registration("inactive-admin@example.com"),
+        "$2b$12$inactive-hash",
+        role=UserRole.ADMIN,
+        is_active=False,
+    )
+
+    assert service.delete_user(inactive_admin.id) == inactive_admin
+
+
 def test_create_rolls_back_user_when_profile_write_fails(user_service, monkeypatch):
     service, _ = user_service
     insert_profile = service.profiles.create
@@ -123,6 +165,23 @@ def test_create_rolls_back_user_when_profile_write_fails(user_service, monkeypat
 
     assert service.list_users() == []
     assert service.get_profile(profile_user_ids[0]) is None
+
+
+def test_delete_rolls_back_user_when_profile_delete_fails(user_service, monkeypatch):
+    service, _ = user_service
+    user, profile = create_user(service)
+    delete_profile = service.profiles.delete_by_user_id
+
+    def delete_then_fail(user_id):
+        raise RuntimeError("delete failed")
+
+    monkeypatch.setattr(service.profiles, "delete_by_user_id", delete_then_fail)
+
+    with pytest.raises(RuntimeError, match="delete failed"):
+        service.delete_user(user.id)
+
+    assert service.get_user_by_id(user.id) == user
+    assert service.get_profile(user.id) == profile
 
 
 def test_delete_user_also_deletes_profile(user_service):

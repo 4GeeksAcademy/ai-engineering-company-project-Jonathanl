@@ -115,7 +115,10 @@ def test_invalid_filters_and_status_payload_are_field_specific(api_client):
 def test_not_found_ids_and_invalid_uuid(api_client):
     not_found = api_client.get("/api/incidents/00000000-0000-0000-0000-000000000000")
     assert not_found.status_code == 404
-    assert not_found.json()["error"] == "Incidencia no encontrada."
+    assert not_found.json()["error"] == {
+        "field": "id",
+        "message": "Incidencia no encontrada.",
+    }
 
     invalid_id = api_client.get("/api/incidents/not-a-uuid")
     assert invalid_id.status_code == 400
