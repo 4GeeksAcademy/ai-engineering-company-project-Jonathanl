@@ -13,7 +13,7 @@ la autenticación permanece en TinyDB (búsquedas rápidas, locales y basadas en
 Esto no es solo un ejercicio de persistencia. El equipo de operaciones incluyó una restricción no negociable en el brief:
 
 > "Los niveles de stock no se pueden modificar directamente. La única forma de cambiar el inventario es registrando una orden — ya sea una orden de entrada que añade stock, o una orden de salida que lo reduce. Cada orden debe ser trazable al usuario que la creó."
-
+Todos los endpoints de inventario deben agruparse bajo el prefijo de router /inventory.
 ---
 
 # ¿Qué es un ORM y por qué importa aquí?
