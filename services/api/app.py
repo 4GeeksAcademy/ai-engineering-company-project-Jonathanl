@@ -13,12 +13,13 @@ from fastapi.responses import JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from services.api.database import CompanyDatabase
+from services.api.database import CompanyDatabase, initialize_sqlmodel_engine
 from services.api.auth import router as auth_router
 from services.api.incidents import CATEGORIES, STATUSES, analyze_stream, render_csv
 from services.api.incident_store import IncidentStore
 from services.api.incident_routes import router as incident_router
 from services.api.profiles import router as profiles_router
+from services.api.routers.inventory import router as inventory_router
 from services.api.security import get_current_user
 from scripts.seed_incidents import seed_incidents as seed_historical_incidents
 from services.api.settings import load_settings
@@ -45,6 +46,15 @@ def create_app(
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         settings = load_settings()
+        
+        # Inicializar SQLModel engine para Supabase
+        try:
+            initialize_sqlmodel_engine()
+            logger.info("✅ SQLModel engine initialized successfully - Connected to Supabase")
+        except Exception as e:
+            logger.error("❌ Failed to initialize SQLModel engine: %s", str(e))
+            raise
+        
         if should_seed_incidents:
             inserted, valid, invalid = seed_historical_incidents(db_path=db_path)
             logger.info(
@@ -189,6 +199,7 @@ def create_app(
     app.include_router(auth_router)
     app.include_router(users_router)
     app.include_router(profiles_router)
+    app.include_router(inventory_router)
     app.mount("/uis/backoffice", StaticFiles(directory=ROOT / "uis" / "backoffice", html=True), name="backoffice")
     app.mount("/uis", StaticFiles(directory=ROOT / "uis", html=True), name="uis")
 
