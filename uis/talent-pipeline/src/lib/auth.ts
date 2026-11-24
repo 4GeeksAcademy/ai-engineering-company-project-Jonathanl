@@ -6,6 +6,19 @@ export function logout(): void {
   window.location.assign("/login");
 }
 
+/** Verifies the current token without redirecting, so AuthGuard can distinguish
+ * an expired session from an unavailable authentication service.
+ */
+export function verifyCurrentSession(): Promise<Response | null> {
+  const token = localStorage.getItem(AUTH_TOKEN_KEY);
+  if (!token) return Promise.resolve(null);
+
+  return fetch(`${AUTH_API_BASE}/auth/me`, {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: "no-store",
+  });
+}
+
 export type RegisterData = {
   email: string;
   password: string;
