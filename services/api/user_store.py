@@ -72,6 +72,50 @@ class UserStore:
             self._table.remove(doc_ids=[record.doc_id])
             return user
 
+    def update_password(self, user_id: UUID, hashed_password: str) -> User | None:
+        with self._lock:
+            record = self._table.get(Query().id == str(user_id))
+            if record is None:
+                return None
+            updated = User.model_validate(record).model_copy(update={"hashed_password": hashed_password})
+            self._table.update(updated.model_dump(mode="json"), doc_ids=[record.doc_id])
+            return updated
+
+
+class PasswordResetTokenStore:
+    def __init__(self, database: CompanyDatabase):
+        self._table = database.table("password_reset_tokens")
+        self._lock = database.lock
+
+    def create(self, token_hash: str, user_id: UUID, expires_at: str) -> None:
+        with self._lock:
+            self._table.remove(Query().user_id == str(user_id))
+            self._table.insert({"token_hash": token_hash, "user_id": str(user_id), "expires_at": expires_at})
+
+    def delete(self, token_hash: str) -> None:
+        with self._lock:
+            self._table.remove(Query().token_hash == token_hash)
+
+    def delete_for_user(self, user_id: UUID) -> None:
+        with self._lock:
+            self._table.remove(Query().user_id == str(user_id))
+
+    def consume(self, token_hash: str, now: str, hashed_password: str, users: UserStore) -> bool:
+        with self._lock:
+            record = self._table.get(Query().token_hash == token_hash)
+            if record is None or record["expires_at"] <= now:
+                return False
+            user = users.get_by_id(UUID(record["user_id"]))
+            if user is None:
+                return False
+            user_record = users._table.get(Query().id == str(user.id))
+            if user_record is None:
+                return False
+            updated_user = user.model_copy(update={"hashed_password": hashed_password})
+            users._table.update(updated_user.model_dump(mode="json"), doc_ids=[user_record.doc_id])
+            self._table.remove(doc_ids=[record.doc_id])
+            return True
+
 
 class ProfileStore:
     def __init__(self, database: CompanyDatabase):

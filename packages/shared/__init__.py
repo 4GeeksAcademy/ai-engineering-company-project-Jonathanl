@@ -1,1 +1,1 @@
-"""Shared Python utilities for Nexova packages.""" 
+"""Shared Python utilities for Nexova packages."""
