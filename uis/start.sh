@@ -9,7 +9,8 @@ cleanup() {
   if [ -n "${WEBSITE_PID:-}" ]; then wait "$WEBSITE_PID" 2>/dev/null || true; fi
   if [ -n "${BACKOFFICE_PID:-}" ]; then wait "$BACKOFFICE_PID" 2>/dev/null || true; fi
 }
-trap cleanup INT TERM
+trap cleanup EXIT
+trap 'exit 0' INT TERM
 
 if [ "$MODE" = "prod" ]; then
   echo "[uis] Iniciando website y backoffice en modo producción..."
@@ -25,4 +26,15 @@ else
   BACKOFFICE_PID=$!
 fi
 
+set +e
 wait "$WEBSITE_PID"
+WEBSITE_STATUS=$?
+if [ "$WEBSITE_STATUS" -ne 0 ]; then
+  kill "$BACKOFFICE_PID" 2>/dev/null || true
+fi
+wait "$BACKOFFICE_PID"
+BACKOFFICE_STATUS=$?
+
+if [ "$WEBSITE_STATUS" -ne 0 ] || [ "$BACKOFFICE_STATUS" -ne 0 ]; then
+  exit 1
+fi

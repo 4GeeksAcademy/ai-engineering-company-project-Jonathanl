@@ -110,37 +110,33 @@ coverage
 
 Script POSIX (`#!/bin/sh`) ejecutado como `CMD` por defecto de `/uis/Dockerfile`. Arranca **ambas aplicaciones Next.js** desde el mismo contenedor en puertos distintos (`website` en `3000` y `backoffice` en `3001`), soporta modo `dev` (recarga en caliente con `npx next dev`) y modo `prod` (`npx next start`), y gestiona señales de apagado (`SIGTERM`/`SIGINT`).
 
+El script real inicia ambos procesos y los espera individualmente. Compose lo ejecuta con `/bin/sh` explícitamente para que el shebang del archivo bind-mounted no se interprete como JavaScript por el entrypoint de Node.
+
 ```sh
 #!/bin/sh
 set -eu
-
-# Modo de ejecución: "dev" por defecto (hot reload) o "prod" (servidor compilado)
 MODE="${1:-${APP_MODE:-dev}}"
-
-# Limpieza ordenada: si Docker detiene el contenedor, termina ambos procesos Next.js
 cleanup() {
-  echo "[uis] Deteniendo aplicaciones website y backoffice..."
   kill "${WEBSITE_PID:-}" "${BACKOFFICE_PID:-}" 2>/dev/null || true
-  wait "${WEBSITE_PID:-}" "${BACKOFFICE_PID:-}" 2>/dev/null || true
+  [ -n "${WEBSITE_PID:-}" ] && wait "$WEBSITE_PID" 2>/dev/null || true
+  [ -n "${BACKOFFICE_PID:-}" ] && wait "$BACKOFFICE_PID" 2>/dev/null || true
 }
-trap cleanup INT TERM
+trap cleanup EXIT
+trap 'exit 0' INT TERM
 
 if [ "$MODE" = "prod" ]; then
-  echo "[uis] Iniciando website (3000) y backoffice (3001) en modo PRODUCCIÓN..."
-  (cd /app/website && exec npx next start -H 0.0.0.0 -p 3000) &
-  WEBSITE_PID=$!
-  (cd /app/backoffice && exec npx next start -H 0.0.0.0 -p 3001) &
-  BACKOFFICE_PID=$!
+  (cd /app/website && exec npm run start) & WEBSITE_PID=$!
+  (cd /app/backoffice && exec npm run start) & BACKOFFICE_PID=$!
 else
-  echo "[uis] Iniciando website (3000) y backoffice (3001) en modo DESARROLLO (hot reload)..."
-  (cd /app/website && exec npx next dev -H 0.0.0.0 -p 3000) &
-  WEBSITE_PID=$!
-  (cd /app/backoffice && exec npx next dev -H 0.0.0.0 -p 3001) &
-  BACKOFFICE_PID=$!
+  (cd /app/website && exec npm run dev) & WEBSITE_PID=$!
+  (cd /app/backoffice && exec npm run dev) & BACKOFFICE_PID=$!
 fi
 
-# Espera a ambos procesos; si uno falla, sale con error para que Docker lo detecte
-wait "$WEBSITE_PID" "$BACKOFFICE_PID"
+set +e
+wait "$WEBSITE_PID"; WEBSITE_STATUS=$?
+[ "$WEBSITE_STATUS" -eq 0 ] || kill "$BACKOFFICE_PID" 2>/dev/null || true
+wait "$BACKOFFICE_PID"; BACKOFFICE_STATUS=$?
+[ "$WEBSITE_STATUS" -eq 0 ] && [ "$BACKOFFICE_STATUS" -eq 0 ]
 ```
 
 #### 2.3. `/uis/Dockerfile` (multi-stage: `base`, `deps`, `dev`, `prod`)
@@ -264,7 +260,10 @@ python-dotenv>=1,<2
 sqlmodel>=0.0.14,<1
 psycopg2-binary>=2.9,<3
 httpx>=0.27,<1
+psycopg[binary]>=3.2,<4
 ```
+
+Se incluye `psycopg` v3 porque la URL SQLAlchemy `postgresql+psycopg://` requiere este driver; `psycopg2-binary` por sí solo no proporciona el módulo `psycopg`.
 
 #### 3.2. `/services/.dockerignore`
 
@@ -467,7 +466,7 @@ services:
       - /app/website/.next
       - /app/backoffice/.next
     # Arranca ambas aplicaciones Next.js en modo desarrollo (npx next dev)
-    command: ["/app/start.sh", "dev"]
+    command: ["/bin/sh", "/app/start.sh", "dev"]
     depends_on:
       - backend
     networks:

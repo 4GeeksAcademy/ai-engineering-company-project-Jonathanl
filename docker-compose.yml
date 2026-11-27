@@ -56,7 +56,7 @@ services:
       - /app/website/.next
       - /app/backoffice/node_modules
       - /app/backoffice/.next
-    command: ["/app/start.sh", "dev"]
+    command: ["/bin/sh", "/app/start.sh", "dev"]
     depends_on:
       - backend
     networks:
