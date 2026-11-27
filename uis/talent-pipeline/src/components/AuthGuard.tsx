@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { AUTH_TOKEN_KEY } from "@/lib/auth";
+import { AUTH_TOKEN_KEY, verifyCurrentSession } from "@/lib/auth";
 
 const PUBLIC_PATHS = new Set(["/login", "/register", "/forgot-password", "/reset-password"]);
 type GuardState = "checking" | "authenticated" | "unavailable";
@@ -21,19 +21,19 @@ export default function AuthGuard({ children }: Readonly<{ children: React.React
     }
 
     let active = true;
-    const token = localStorage.getItem(AUTH_TOKEN_KEY);
-    if (!token) {
+    if (!localStorage.getItem(AUTH_TOKEN_KEY)) {
       router.replace("/login");
       return;
     }
 
     setState("checking");
-    fetch("/nexova-api/auth/me", {
-      headers: { Authorization: `Bearer ${token}` },
-      cache: "no-store",
-    })
+    verifyCurrentSession()
       .then((response) => {
         if (!active) return;
+        if (!response) {
+          router.replace("/login");
+          return;
+        }
         if (response.status === 401) {
           localStorage.removeItem(AUTH_TOKEN_KEY);
           router.replace("/login");

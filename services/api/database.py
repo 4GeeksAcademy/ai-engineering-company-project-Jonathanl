@@ -3,9 +3,8 @@ from pathlib import Path
 from threading import RLock
 
 from tinydb import TinyDB
-from sqlalchemy.orm import Session
 from sqlalchemy import create_engine
-from sqlmodel import SQLModel
+from sqlmodel import Session, SQLModel
 
 
 class CompanyDatabase:
