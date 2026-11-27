@@ -97,7 +97,7 @@ byId("upload-form").addEventListener("submit", async (event) => {
   const form = new FormData();
   form.append("file", file);
   try {
-    const response = await fetch("/api/incidents/analyze", { method: "POST", body: form, headers: window.incidentAuthHeaders ? window.incidentAuthHeaders() : {} });
+    const response = await fetch("/backend/api/incidents/analyze", { method: "POST", body: form, headers: window.incidentAuthHeaders ? window.incidentAuthHeaders() : {} });
     const result = await responseJson(response, "No se pudo analizar el archivo. Revisa el CSV e inténtalo de nuevo.");
     showResults(result);
     byId("download").disabled = false;
@@ -117,7 +117,7 @@ byId("upload-form").addEventListener("submit", async (event) => {
 byId("download").addEventListener("click", async () => {
   byId("download").disabled = true;
   try {
-    const response = await fetch("/api/incidents/results/export", { headers: window.incidentAuthHeaders ? window.incidentAuthHeaders() : {} });
+    const response = await fetch("/backend/api/incidents/results/export", { headers: window.incidentAuthHeaders ? window.incidentAuthHeaders() : {} });
     if (!response.ok) {
       throw userError("No se pudo descargar el CSV. Vuelve a analizar las incidencias e inténtalo de nuevo.");
     }

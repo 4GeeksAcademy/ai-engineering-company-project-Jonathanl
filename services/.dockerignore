@@ -1,0 +1,23 @@
+# Secretos y configuraciones locales
+.env*
+**/.env*
+
+# Bytecode y cachés Python
+__pycache__
+**/__pycache__
+*.py[cod]
+**/*.py[cod]
+.pytest_cache
+**/.pytest_cache
+.venv
+**/.venv
+
+# Pruebas locales y artefactos
+tests
+**/tests
+*.log
+**/*.log
+*.egg-info
+**/*.egg-info
+.git
+.DS_Store

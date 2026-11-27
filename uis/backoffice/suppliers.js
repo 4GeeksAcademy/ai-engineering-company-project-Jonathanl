@@ -210,7 +210,7 @@ async function loadSuppliers() {
   if (byId("category-filter").value) params.set("category", byId("category-filter").value);
   const query = params.size ? `?${params}` : "";
   try {
-    const result = await responseJson(await fetch(`/api/suppliers${query}`, { headers: { Accept: "application/json" } }));
+    const result = await responseJson(await fetch(`/backend/api/suppliers${query}`, { headers: { Accept: "application/json" } }));
     if (!Array.isArray(result) || !result.every(isSupplier)) {
       throw userError("El servicio devolvió un directorio no válido. Vuelve a actualizarlo.");
     }
@@ -243,7 +243,7 @@ async function updateRate(supplier, input, button) {
   button.disabled = true;
   setMessage("Actualizando la tarifa…");
   try {
-    const updated = await responseJson(await fetch(`/api/suppliers/${supplier.id}`, {
+    const updated = await responseJson(await fetch(`/backend/api/suppliers/${supplier.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
       body: JSON.stringify({ monthly_rate: monthlyRate }),
@@ -267,7 +267,7 @@ async function updateStatus(supplier, status, button) {
   button.disabled = true;
   setMessage("Actualizando el estado del proveedor…");
   try {
-    const updated = await responseJson(await fetch(`/api/suppliers/${supplier.id}`, {
+    const updated = await responseJson(await fetch(`/backend/api/suppliers/${supplier.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
       body: JSON.stringify({ status }),
@@ -328,7 +328,7 @@ byId("create-form").addEventListener("submit", async (event) => {
   form.setAttribute("aria-busy", "true");
   setCreateMessage("Guardando proveedor…");
   try {
-    const created = await responseJson(await fetch("/api/suppliers", {
+    const created = await responseJson(await fetch("/backend/api/suppliers", {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
       body: JSON.stringify(payload),

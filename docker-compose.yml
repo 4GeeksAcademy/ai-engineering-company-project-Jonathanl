@@ -1,0 +1,68 @@
+services:
+  backend:
+    build:
+      context: ./services
+      dockerfile: Dockerfile
+      target: dev
+    container_name: nexova-backend
+    env_file:
+      - path: .env
+        required: false
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./services:/app/services
+      - ./scripts:/app/scripts
+      - ./packages:/app/packages
+      - ./data:/app/data
+    command:
+      - uvicorn
+      - services.api.app:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --reload
+      - --reload-dir
+      - /app/services
+      - --reload-dir
+      - /app/packages
+      - --reload-dir
+      - /app/scripts
+    networks:
+      - nexova-net
+
+  uis:
+    build:
+      context: ./uis
+      dockerfile: Dockerfile
+      target: dev
+    container_name: nexova-uis
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      BACKEND_URL: http://backend:8000
+      BACKOFFICE_BACKEND_PROXY_PATH: /backend
+      WATCHPACK_POLLING: "true"
+    ports:
+      - "3000:3000"
+      - "3001:3001"
+    volumes:
+      - ./uis/website:/app/website
+      - ./uis/backoffice:/app/backoffice
+      - ./uis/start.sh:/app/start.sh:ro
+      - /app/website/node_modules
+      - /app/website/.next
+      - /app/backoffice/node_modules
+      - /app/backoffice/.next
+    command: ["/app/start.sh", "dev"]
+    depends_on:
+      - backend
+    networks:
+      - nexova-net
+
+networks:
+  nexova-net:
+    name: nexova-net
+    driver: bridge

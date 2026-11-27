@@ -1,0 +1,17 @@
+# Secretos y configuraciones locales
+.env*
+**/.env*
+
+# Dependencias instaladas localmente y builds Next.js
+node_modules
+**/node_modules
+.next
+**/.next
+
+# Logs, cobertura y metadatos de repositorio
+*.log
+**/*.log
+npm-debug.log*
+coverage
+.git
+.DS_Store

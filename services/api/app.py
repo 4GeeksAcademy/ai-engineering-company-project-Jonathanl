@@ -200,8 +200,12 @@ def create_app(
     app.include_router(users_router)
     app.include_router(profiles_router)
     app.include_router(inventory_router)
-    app.mount("/uis/backoffice", StaticFiles(directory=ROOT / "uis" / "backoffice", html=True), name="backoffice")
-    app.mount("/uis", StaticFiles(directory=ROOT / "uis", html=True), name="uis")
+    backoffice_dir = ROOT / "uis" / "backoffice"
+    uis_dir = ROOT / "uis"
+    if backoffice_dir.is_dir():
+        app.mount("/uis/backoffice", StaticFiles(directory=backoffice_dir, html=True), name="backoffice")
+    if uis_dir.is_dir():
+        app.mount("/uis", StaticFiles(directory=uis_dir, html=True), name="uis")
 
     return app
 

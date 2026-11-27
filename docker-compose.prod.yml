@@ -1,0 +1,51 @@
+services:
+  backend:
+    build:
+      context: ./services
+      dockerfile: Dockerfile
+      target: prod
+    container_name: nexova-backend-prod
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - ./scripts:/app/scripts:ro
+      - ./packages:/app/packages:ro
+      - nexova-runtime-data:/app/data/runtime
+    networks:
+      - nexova-net
+
+  uis:
+    build:
+      context: ./uis
+      dockerfile: Dockerfile
+      target: prod
+      args:
+        BACKEND_URL: http://backend:8000
+    container_name: nexova-uis-prod
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      BACKEND_URL: http://backend:8000
+      BACKOFFICE_BACKEND_PROXY_PATH: /backend
+    ports:
+      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:3001:3001"
+    depends_on:
+      - backend
+    networks:
+      - nexova-net
+
+networks:
+  nexova-net:
+    name: nexova-net
+    driver: bridge
+
+volumes:
+  nexova-runtime-data:
+    name: nexova-runtime-data

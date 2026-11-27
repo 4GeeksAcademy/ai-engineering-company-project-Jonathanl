@@ -218,7 +218,7 @@
       if (byId(controlId).value) params.set(queryName, byId(controlId).value);
     }
     try {
-      const result = await requestJson(`/api/incidents${params.size ? `?${params}` : ""}`);
+      const result = await requestJson(`/backend/api/incidents${params.size ? `?${params}` : ""}`);
       if (!Array.isArray(result) || !result.every(isIncident)) {
         throw userError("El servicio devolvió un listado no válido. Actualiza las incidencias e inténtalo de nuevo.");
       }
@@ -243,7 +243,7 @@
     select.setAttribute("aria-busy", "true");
     setMessage("list-message", "Actualizando el estado…");
     try {
-      const updated = await requestJson(`/api/incidents/${encodeURIComponent(incident.id)}/status`, {
+      const updated = await requestJson(`/backend/api/incidents/${encodeURIComponent(incident.id)}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: nextStatus }),
@@ -303,7 +303,7 @@
     byId("summary-message").setAttribute("aria-busy", "true");
     setMessage("summary-message", "Cargando métricas…");
     try {
-      const summary = await requestJson("/api/incidents/summary");
+      const summary = await requestJson("/backend/api/incidents/summary");
       if (!isSummary(summary)) throw userError("El servicio devolvió métricas no válidas. Actualiza el resumen e inténtalo de nuevo.");
       renderSummary(summary);
       setMessage("summary-message", "Resumen actualizado.");
@@ -326,7 +326,7 @@
     try {
       const values = new FormData(event.currentTarget);
       const body = new URLSearchParams({ username: values.get("username"), password: values.get("password") });
-      const response = await fetch("/auth/login", {
+      const response = await fetch("/backend/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
         body,
@@ -374,7 +374,7 @@
     form.setAttribute("aria-busy", "true");
     setMessage("form-message", "Registrando incidencia…");
     try {
-      await requestJson("/api/incidents", {
+      await requestJson("/backend/api/incidents", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
